@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+._*
+
+# 编辑器 / 工具运行时状态
+.vmark/
+.idea/
+.vscode/
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# 微信小程序
+# 构建产物：由「工具 → 构建 npm」生成，不入库
+miniprogram/miniprogram_npm/
+# 私有配置：含本机路径与个人设置，微信官方建议不提交
+project.private.config.json
+
+# 测试语料中的大文件与真实 AI 输出样本
+# （HTML 类语料需自行收集，体积大且可能含个人内容）
+tests/fixtures/*.large.*
+tests/fixtures/private/
+
+# 构建/验证产物
+dist/
+*.log

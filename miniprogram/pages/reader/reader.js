@@ -1276,11 +1276,7 @@ Page({
       // 没有文件了，返回首页
       app.globalData.activeQueueIdx = -1;
       this.setData({ showFileQueue: false });
-      wx.navigateBack({
-        fail: function() {
-          wx.switchTab({ url: '/pages/index/index' });
-        }
-      });
+      app.backToHome();
       return;
     }
 
@@ -1314,11 +1310,7 @@ Page({
   },
 
   goBack: function() {
-    wx.navigateBack({
-      fail: function() {
-        wx.switchTab({ url: '/pages/index/index' });
-      }
-    });
+    app.backToHome();
   },
 
   // ─── 示例文本 ───

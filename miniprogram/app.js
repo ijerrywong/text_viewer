@@ -229,6 +229,30 @@ App({
   },
 
   /**
+   * 回到首页
+   *
+   * 优先 navigateBack（保留首页已有状态）；页面栈里只有当前页时它会失败 ——
+   * 开发者工具从阅读页直接编译、scene 1173 进入、redirectTo 之后都是这种情况。
+   *
+   * ⚠️ 兜底**不能用 wx.switchTab**：它只能跳 tabBar 页面，而本项目没有 tabBar，
+   * 于是兜底这一步也失败，且原来没写 fail 回调 ——
+   * 用户点「返回首页」完全没反应，是个彻底静默的死按钮。
+   * reLaunch 关掉所有页面重开首页，任何页面栈状态下都成立。
+   */
+  backToHome() {
+    wx.navigateBack({
+      fail: function() {
+        wx.reLaunch({
+          url: '/pages/index/index',
+          fail: function(err) {
+            console.error('返回首页失败', err);
+          }
+        });
+      }
+    });
+  },
+
+  /**
    * 基础库版本兼容性检查
    */
   checkCompatibility() {

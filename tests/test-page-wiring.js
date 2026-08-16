@@ -183,6 +183,66 @@ pages.forEach(function (p) {
   }
 });
 
+// ─── 页面跳转 ───
+
+console.log('\n页面跳转');
+
+/**
+ * 没有 tabBar 的小程序里，wx.switchTab 必然失败 —— 它只能跳 tabBar 页面。
+ * 曾经被用作 navigateBack 的兜底，而且没写 fail 回调：
+ * 页面栈只剩一页时 navigateBack 失败 → switchTab 也失败 → 完全静默，
+ * 用户点「返回首页」毫无反应。正确兜底是 wx.reLaunch。
+ */
+var hasTabBar = !!(appJsonRaw && (function () {
+  try { return JSON.parse(appJsonRaw).tabBar; } catch (e) { return null; }
+})());
+
+var switchTabUses = [];
+function scanSwitchTab(dir) {
+  fs.readdirSync(dir).forEach(function (f) {
+    var full = path.join(dir, f);
+    if (fs.statSync(full).isDirectory()) return scanSwitchTab(full);
+    if (!/\.js$/.test(f)) return;
+    var code = (read(full) || '')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/\/\/[^\n]*/g, ' ');
+    if (/wx\.switchTab\s*\(/.test(code)) {
+      switchTabUses.push(path.relative(ROOT, full));
+    }
+  });
+}
+scanSwitchTab(ROOT);
+
+ok('没有 tabBar 时不使用 wx.switchTab（调用必然失败）',
+  hasTabBar || switchTabUses.length === 0,
+  switchTabUses.join(', '));
+
+// 所有导航调用都该有 fail 兜底，否则失败时是静默的
+var navNoFail = [];
+function scanNav(dir) {
+  fs.readdirSync(dir).forEach(function (f) {
+    var full = path.join(dir, f);
+    if (fs.statSync(full).isDirectory()) return scanNav(full);
+    if (!/\.js$/.test(f)) return;
+    var code = (read(full) || '')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/\/\/[^\n]*/g, ' ')
+      .replace(/\s+/g, ' ');
+    // navigateBack 单独看：它失败是常态（页面栈只剩一页），必须有兜底
+    var re = /wx\.navigateBack\s*\(\s*\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g;
+    var m;
+    while ((m = re.exec(code)) !== null) {
+      if (!/fail\s*:/.test(m[1])) {
+        navNoFail.push(path.relative(ROOT, full));
+      }
+    }
+  });
+}
+scanNav(ROOT);
+
+ok('wx.navigateBack 都带 fail 兜底（页面栈只剩一页时它会失败）',
+  navNoFail.length === 0, navNoFail.join(', '));
+
 // ─── 转发 / 分享 ───
 
 console.log('\n转发 / 分享');

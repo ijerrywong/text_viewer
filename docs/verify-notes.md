@@ -551,3 +551,52 @@ mp.weixin.qq.com → 设置 → 服务内容声明 → 用户隐私保护指引�
 
 **已加静态检查**：首页必须定义 `onShareTimeline`，其余页面必须**不**定义
 （定义了就是给接收方一个死页面）。注入回归验证过会失败。
+
+---
+
+## 18. 「返回首页」是个静默的死按钮（2026-08-16 开发者工具复现）
+
+**现象**：阅读页出现「文件信息丢失」后，点「返回首页」完全没反应。
+
+**原因**：兜底用错了 API。
+
+```js
+wx.navigateBack({
+  fail: function() {
+    wx.switchTab({ url: '/pages/index/index' });   // ← 必然失败，且没有 fail 回调
+  }
+});
+```
+
+- `wx.switchTab` **只能跳 tabBar 页面**，而本项目 `app.json` 里**没有 tabBar**，
+  所以这一步必然失败；
+- 这个 `switchTab` 调用又没写 `fail` 回调，于是失败得彻底静默 ——
+  用户看到的就是"点了没反应"。
+
+**什么时候会走到兜底**：`navigateBack` 在页面栈只剩当前页时失败。常见于
+
+- 开发者工具里直接从阅读页编译/热重载（本次复现路径）
+- scene 1173 从聊天素材进入
+- 任何 `redirectTo` 之后
+
+而「文件信息丢失」本身也常与之同时发生：开发者工具重新编译后
+`app.globalData.pendingFile` 被重置为空 → 阅读页拿不到文件 → 报这个错。
+**两件事叠在一起，就成了"进了一个错误页还出不去"。**
+
+**修复**：抽出 `app.backToHome()`，兜底改用 `wx.reLaunch`
+（关掉所有页面重开首页，任何页面栈状态下都成立），并补上最外层的 `fail` 日志。
+`goBack` 与 `closeFileInQueue` 两处都换掉。
+
+**已加静态检查**（`tests/test-page-wiring.js`）：
+- 没有 tabBar 时不得出现 `wx.switchTab`（调用必然失败）
+- 所有 `wx.navigateBack` 必须带 `fail` 兜底（页面栈只剩一页时它失败是常态）
+
+注入回归验证过会失败。测试 449 → 451。
+
+### 顺带记录一个尚未处理的缺口
+
+阅读页以 `source=file` 打开时，URL 里**不带 fileId**，文件信息只存在
+`app.globalData.pendingFile` 里。因此小程序被系统回收后再回到阅读页，
+就只能报「文件信息丢失」——尽管该文件其实已经存进「最近」了，本可以恢复。
+（`source=recent` 那条路带了 fileId，能恢复。）
+属于 A8「冷启动 vs 热启动」的延伸，本轮未处理。

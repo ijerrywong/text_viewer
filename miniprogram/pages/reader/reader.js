@@ -103,27 +103,30 @@ Page({
   _isProgrammaticScroll: false,
   _pendingScrollTopRpx: 0,
   _settingsUnsubscribe: null,
+  _destroyed: false,
 
   // ─── 生命周期 ───
 
   onLoad: function(options) {
-    var sys = app.globalData.systemInfo || wx.getSystemInfoSync();
-    var statusBarHeight = sys.statusBarHeight || 20;
-    var navContent = sys.platform === 'android' ? 48 : 44;
+    // ⚠️ 页面销毁后仍会执行的异步回调，是本项目最难查的一类故障来源。
+    //
+    // 这一页的异步回调遍地都是：intake 的 Promise 链、解析前让帧的 setTimeout、
+    // SelectorQuery.exec 的测量回调、恢复进度的两层嵌套 setTimeout……
+    // 用户在文档还在加载时点了返回（或微信因内存告警销毁了页面），
+    // 这些回调照样会跑到，然后对着一个已经销毁的页面实例调 setData。
+    // 真机上轻则控制台报错，重则整页白屏，而且模拟器几乎复现不出来。
+    //
+    // 在几十个回调里逐个写守卫必然会漏，所以在入口处一次性拦掉。
+    // （iOS 15 及以下 Promise 是 setTimeout 模拟的宏任务，回调时机比标准环境更晚，
+    //   撞上销毁的概率还要更高一些 —— 官方 js-support 文档明确写了这一点。）
+    var rawSetData = this.setData.bind(this);
+    this._rawSetData = rawSetData;
+    this.setData = function(data, cb) {
+      if (this._destroyed) return;
+      return rawSetData(data, cb);
+    }.bind(this);
 
-    this._screenWidth = sys.windowWidth || 375;
-    this._rpxRatio = 750 / this._screenWidth;
-
-    // 计算视口高度（rpx）
-    var toolbarPx = 50 + (sys.safeArea ? sys.safeArea.bottom - sys.safeArea.height : 0);
-    var viewportPx = sys.windowHeight - statusBarHeight - navContent - 50;
-    this._viewportRpx = viewportPx * this._rpxRatio;
-
-    this.setData({
-      statusBarHeight: statusBarHeight,
-      navBarHeight: statusBarHeight + navContent,
-      toolbarHeight: 50 * this._rpxRatio + (sys.safeArea ? (sys.screenHeight - sys.safeArea.bottom) * this._rpxRatio : 0)
-    });
+    this.measureViewport();
 
     // 应用主题和设置
     this.applySettings();
@@ -149,11 +152,85 @@ Page({
     // 加载内容
     this.loadContent(source, options.file);
 
-    // 开启转发/朋友圈菜单
-    app.enableShareMenu();
-
     // 注册到多文件队列
     this.registerInQueue(source, name, options.file, fileId);
+  },
+
+  /**
+   * 测量视口，算出虚拟滚动依赖的三个量
+   *
+   * 拆成独立方法是为了让 onResize 能原样再跑一遍 —— 见 onResize 的注释。
+   */
+  measureViewport: function() {
+    var sys = app.globalData.systemInfo || wx.getSystemInfoSync();
+    var statusBarHeight = sys.statusBarHeight || 20;
+    var navContent = sys.platform === 'android' ? 48 : 44;
+
+    this._screenWidth = sys.windowWidth || 375;
+    this._rpxRatio = 750 / this._screenWidth;
+
+    var viewportPx = (sys.windowHeight || 667) - statusBarHeight - navContent - 50;
+    this._viewportRpx = viewportPx * this._rpxRatio;
+
+    this.setData({
+      statusBarHeight: statusBarHeight,
+      navBarHeight: statusBarHeight + navContent,
+      toolbarHeight: 50 * this._rpxRatio +
+        (sys.safeArea ? (sys.screenHeight - sys.safeArea.bottom) * this._rpxRatio : 0)
+    });
+  },
+
+  /**
+   * 窗口尺寸变化（横竖屏、iPad、PC 拉伸窗口、Android 分屏、折叠屏展开）
+   *
+   * ⚠️ 这是**平台侧最容易被忽略、后果又最重**的一类变化。
+   * 虚拟滚动的每一个数字都建立在「屏宽固定」这个假设上：
+   *   _rpxRatio = 750 / 屏宽    —— 换算 px ⇄ rpx
+   *   _viewportRpx              —— 决定可见区间
+   *   块高预估                  —— 按屏宽算每行能放多少字
+   * 窗口一变，三者同时失真：占位高度对不上真实高度，滚动条长度错乱，
+   * 页面会突然跳到一个完全无关的位置，看起来像「内容乱了」。
+   *
+   * PC 端微信可以随手拉伸窗口，iPad 和折叠屏更是随时触发，
+   * 不是小概率场景。这里按 E1b 的同一套办法处理：
+   * 先把当前位置换算成「块索引 + 块内比例」这个与像素无关的表示，
+   * 重新测量、重估全部块高，再换算回新的 scrollTop。
+   *
+   * 注意 onResize 需要页面 json 里 "resizable": true 才会在 iPad 上触发；
+   * PC 端和 Android 分屏无需配置即可触发。
+   */
+  onResize: function() {
+    var hadLayout = this._layout && this._blocks.length > 0;
+    var progress = hadLayout
+      ? renderMod.layoutToProgress(this._layout, this._lastScrollTopRpx)
+      : null;
+
+    this.measureViewport();
+    // 屏宽变了，renderSettings 里的 screenWidth 也变了，预估高度必须重算
+    this._renderSettings = null;
+
+    if (!hadLayout) return;
+
+    this._layout.reestimate(this.renderSettings());
+    this._lastScrollTopRpx = renderMod.progressToLayoutTop(
+      this._layout, progress.blockIndex, progress.ratio
+    );
+    this.setData({ contentHeight: this._layout.total() });
+    this.updateVisibleRange(this._lastScrollTopRpx, true);
+    this.scrollTo(this._lastScrollTopRpx);
+  },
+
+  /**
+   * 内存告警时的自救（由 app.releaseMemory 调用）
+   *
+   * 当前文档不能丢 —— 丢了用户正在读的东西才是真事故。
+   * 能丢的是渲染侧的冗余：非虚拟滚动模式下 visibleBlocks 里躺着整份文档的副本
+   * （逻辑层一份 + 视图层一份），这时候切到虚拟滚动能立刻省掉视图层那份。
+   */
+  onLowMemory: function() {
+    if (this.data.useVirtualScroll || this._blocks.length === 0) return;
+    this.setData({ useVirtualScroll: true, visibleBlocks: [] });
+    this.updateVisibleRange(this._lastScrollTopRpx, true);
   },
 
   // ─── 转发（Edge E3）───
@@ -169,28 +246,53 @@ Page({
   onShow: function() {
     // 从设置页返回时刷新设置
     this.applySettings();
+    // 转发菜单要在页面显示后再开（onLoad 时页面还没上屏，调用可能被忽略）
+    app.enableShareMenu();
     // 如果已有内容，重新计算高度预估
     if (this._blocks.length > 0 && this.data.useVirtualScroll) {
       this.updateVisibleRange(this._lastScrollTopRpx);
     }
   },
 
+  /**
+   * onHide 才是持久化的唯一可靠时机
+   *
+   * 小程序进后台 5 秒后微信就会挂起 JS 线程，挂满 30 分钟直接销毁；
+   * iOS 收到内存告警时更是立即销毁 —— 这两条路径**都不会触发 onUnload**。
+   * 所以进度必须在 onHide 落盘，不能指望 onUnload 兜底（Edge D11）。
+   */
   onHide: function() {
     this.saveReadingProgress();
     this.saveCurrentToQueue();
   },
 
   onUnload: function() {
-    wx.setKeepScreenOn(false);
+    // 先落盘再拆东西：下面会清掉 _blocks/_layout，顺序反了就存不出进度
     this.saveReadingProgress();
     this.saveCurrentToQueue();
+
+    this._destroyed = true;
+    wx.setKeepScreenOn(false);
+
+    // ⚠️ 三个定时器都要清。
+    // 官方内存优化文档把「未清理的 setTimeout/setInterval」列为泄漏首因：
+    // 定时器持有闭包 → 闭包持有页面实例 → 整份文档 IR 跟着一起留在内存里，
+    // 页面明明已经关了却回收不掉。以前这里只清了 _scrollTimer。
+    var timers = ['_scrollTimer', '_progressTimer', '_measureTimer'];
+    for (var i = 0; i < timers.length; i++) {
+      if (this[timers[i]]) {
+        clearTimeout(this[timers[i]]);
+        this[timers[i]] = null;
+      }
+    }
+
+    // 主动断开对文档 IR 的引用，别等 GC 自己想明白
+    this._blocks = [];
+    this._layout = null;
+
     // 清空文件队列（页面销毁时）
     app.globalData.fileQueue = [];
     app.globalData.activeQueueIdx = -1;
-    if (this._scrollTimer) {
-      clearTimeout(this._scrollTimer);
-      this._scrollTimer = null;
-    }
   },
 
   // ─── 隐私授权 ───
@@ -585,6 +687,16 @@ Page({
       qEntry.toc = result.toc;
       qEntry.encoding = encoding;
       qEntry.format = format;
+      // ⚠️ 必须把本地副本路径记进队列条目。
+      // 队列缓存受 QUEUE_CACHE_LIMIT 限制，也会被内存告警清空；
+      // 被淘汰后切回这个文件时要重新加载，而 source='file' 那条路
+      // 唯一的文件信息来源是 globalData.pendingFile —— 它在首次加载时就已被消费置空。
+      // 结果是「切回刚才那个文件」必然报『文件信息丢失』。存下 localPath 才能重来。
+      qEntry.localPath = (this.data.fileMeta && this.data.fileMeta.localPath) || '';
+      qEntry.fileId = this.data.fileId || qEntry.fileId;
+      qEntry.size = this.data.fileSize || 0;
+      // 队列面板显示的 format/encoding 到这一步才确定，补一次投影
+      this.syncQueueView();
     }
     this.trimQueueCache();
   },
@@ -1164,7 +1276,8 @@ Page({
       for (var i = 0; i < queue.length; i++) {
         if (queue[i].fileId === fileId) {
           app.globalData.activeQueueIdx = i;
-          this.setData({ activeQueueIdx: i, fileQueue: queue });
+          this.setData({ activeQueueIdx: i });
+          this.syncQueueView();
           return;
         }
       }
@@ -1173,7 +1286,37 @@ Page({
     // 添加到队列
     queue.push(entry);
     app.globalData.activeQueueIdx = queue.length - 1;
-    this.setData({ activeQueueIdx: queue.length - 1, fileQueue: queue });
+    this.setData({ activeQueueIdx: queue.length - 1 });
+    this.syncQueueView();
+  },
+
+  /**
+   * 把队列**投影**成视图需要的那几个字段再下发
+   *
+   * ⚠️ 这是本页最严重的一处 setData 违规，且症状极具迷惑性。
+   *
+   * 队列条目在 _finalizeRender / saveCurrentToQueue 里会被挂上 `blocks`（整份文档 IR）
+   * 和 `layout`（块高前缀和索引）。原先直接 `setData({ fileQueue: queue })`，
+   * 等于把**整份解析后的文档**做一次逻辑层→Native→视图层的跨线程序列化。
+   * 官方给 setData 的硬上限是单次 1MB（实践应控制在 64KB）——
+   * 一份稍大的文档就能轻松超过，超限时 setData 直接失败：
+   * 队列面板打不开、切文件没反应，而控制台只有一句不起眼的警告，
+   * 看起来完全像是「点击事件没绑上」，根本不会往 setData 上想。
+   *
+   * 视图层其实只用到 name / format / encoding 三个字段。
+   * blocks 和 layout 留在 globalData 里给逻辑层自己用，一个字节都不该过桥。
+   */
+  syncQueueView: function() {
+    var queue = app.globalData.fileQueue || [];
+    var view = [];
+    for (var i = 0; i < queue.length; i++) {
+      view.push({
+        name: queue[i].name,
+        format: queue[i].format,
+        encoding: queue[i].encoding
+      });
+    }
+    this.setData({ fileQueue: view });
   },
 
   toggleFileQueue: function() {
@@ -1245,7 +1388,16 @@ Page({
         self.updateProgressDisplay(self._lastScrollTopRpx);
       }, 200);
     } else {
-      // 需要重新加载
+      // 缓存已被淘汰（QUEUE_CACHE_LIMIT 或内存告警），需要重新加载。
+      // 把当初记下的本地副本重新放回 pendingFile —— 见 _finalizeRender 里的说明。
+      if (target.localPath) {
+        app.globalData.pendingFile = {
+          path: target.localPath,
+          name: target.name,
+          size: target.size || 0
+        };
+        this.setData({ fileId: target.fileId || '' });
+      }
       this.setData({ loading: true, loadingText: '正在加载...' });
       this.loadContent(target.source, target.file);
     }
@@ -1284,7 +1436,8 @@ Page({
     if (isCurrent) {
       var newIdx = Math.min(idx, queue.length - 1);
       app.globalData.activeQueueIdx = newIdx;
-      this.setData({ showFileQueue: false, fileQueue: queue, activeQueueIdx: newIdx });
+      this.setData({ showFileQueue: false, activeQueueIdx: newIdx });
+      this.syncQueueView();
       // 切换到新的当前文件
       this.switchToFile({ currentTarget: { dataset: { index: newIdx } } });
     } else {
@@ -1294,7 +1447,8 @@ Page({
         adjustedIdx--;
       }
       app.globalData.activeQueueIdx = adjustedIdx;
-      this.setData({ fileQueue: queue, activeQueueIdx: adjustedIdx });
+      this.setData({ activeQueueIdx: adjustedIdx });
+      this.syncQueueView();
     }
   },
 

@@ -266,3 +266,26 @@
 /* 隐私授权弹窗 */
 
 /* 隐私弹窗样式已移入 components/privacy-dialog/ */
+
+/* 朋友圈单页模式横幅（scene 1154，平台禁用跳转/选文件/剪贴板） */
+.single-page-banner {
+  margin: 24rpx 32rpx 0;
+  padding: 24rpx 28rpx;
+  background-color: var(--accent-bg);
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.single-page-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.single-page-desc {
+  font-size: 24rpx;
+  color: var(--accent);
+  line-height: 1.6;
+}

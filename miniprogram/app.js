@@ -34,7 +34,12 @@ App({
     fileQueue: [],
     activeQueueIdx: -1,
     // 兼容性信息
-    compat: null
+    compat: null,
+    // 本次进入的场景值（1154 = 朋友圈单页模式，能力大幅受限）
+    scene: 0,
+    // scene 1173 从聊天素材进入时待打开的文件，由首页 onShow 消费
+    pendingFile: null,
+    pendingText: null
   },
 
   onLaunch(options) {
@@ -106,6 +111,12 @@ App({
 
     // 处理启动场景（scene 1173 待 Phase 4 验证后启用）
     this.handleLaunchScene(options);
+
+    // 平台侧机制：版本更新 / 内存告警。
+    // 两者都只在真机上会真正发生，开发者工具里几乎不可能复现，
+    // 所以不接的话，问题只会以「用户说闪退」「用户说功能没更新」的形式回来。
+    this.setupUpdateManager();
+    this.setupMemoryWarning();
   },
 
   onShow(options) {
@@ -114,8 +125,115 @@ App({
     // 真正受影响的只有设置页。）
     this.applyThemeNav(this.globalData.settings && this.globalData.settings.theme);
 
+    // 记录本次进入的场景值。单页模式（1154）会禁掉一大批能力，
+    // 页面必须能查到自己身处何种环境，见 isSinglePageMode()。
+    if (options && typeof options.scene === 'number') {
+      this.globalData.scene = options.scene;
+    }
+
     // 热启动场景处理（幂等）
     this.handleLaunchScene(options);
+  },
+
+  /**
+   * 版本更新
+   *
+   * 官方机制：冷启动时微信在后台静默下载新版本，**本次运行用的仍是旧版**，
+   * 新版要等下一次冷启动才生效。而小程序常驻后台 30 分钟才销毁，
+   * 用户很可能连着几天都跑在同一个旧版本上 ——
+   * 线上修完的 bug 用户还在踩，这是最容易被误判成「没修好」的一类反馈。
+   * onUpdateReady 后主动问一次，用户同意就立即重启到新版。
+   */
+  setupUpdateManager() {
+    if (!wx.getUpdateManager) return;
+    var mgr;
+    try {
+      mgr = wx.getUpdateManager();
+    } catch (e) {
+      return;
+    }
+    if (!mgr) return;
+
+    mgr.onUpdateReady(function() {
+      wx.showModal({
+        title: '有新版本',
+        content: '新版本已下载完成，重启后生效。',
+        confirmText: '立即重启',
+        cancelText: '稍后',
+        success: function(res) {
+          // applyUpdate 会强制重启小程序，只在用户同意时调
+          if (res.confirm) mgr.applyUpdate();
+        }
+      });
+    });
+
+    // 下载失败不打扰用户：旧版本照常可用，下次冷启动微信会自己再试
+    mgr.onUpdateFailed(function() {
+      console.warn('[更新] 新版本下载失败，继续使用当前版本');
+    });
+  },
+
+  /**
+   * 内存告警
+   *
+   * 本项目是不折不扣的内存大户：整份文档 IR + 块高索引 + 文件队列里最多 3 份缓存。
+   * iOS 在内存吃紧时**不会给你排队的机会，直接销毁小程序** —— 用户看到的就是「闪退」，
+   * 而 onUnload 在这种销毁里根本不触发，事后连日志都没有。
+   * 唯一能自救的时机就是这个回调：先把能扔的扔掉，把「闪退」换成「有一份文档要重新解析」。
+   *
+   * level: 5=TRIM_MEMORY_RUNNING_MODERATE 10=LOW 15=CRITICAL（Android）；iOS 恒为 -1
+   */
+  setupMemoryWarning() {
+    if (!wx.onMemoryWarning) return;
+    var self = this;
+    wx.onMemoryWarning(function(res) {
+      console.warn('[内存告警] level=', res && res.level);
+      self.releaseMemory();
+    });
+  },
+
+  /**
+   * 主动释放可重建的内存
+   *
+   * 只丢「丢了还能再算出来」的东西：文件队列里非当前文档的解析缓存。
+   * 阅读进度已经落盘（块索引 + 块内比例），当前文档不动，
+   * 所以用户最坏的感受是「切回上一个文件时转了一下圈」，而不是整个小程序没了。
+   */
+  releaseMemory() {
+    var queue = this.globalData.fileQueue || [];
+    var active = this.globalData.activeQueueIdx;
+    var freed = 0;
+    for (var i = 0; i < queue.length; i++) {
+      if (i === active) continue;
+      if (queue[i] && queue[i].blocks) {
+        queue[i].blocks = null;
+        queue[i].layout = null;
+        freed++;
+      }
+    }
+    // 让当前页面也有机会收缩自己的渲染数据
+    try {
+      var pages = getCurrentPages();
+      var cur = pages[pages.length - 1];
+      if (cur && typeof cur.onLowMemory === 'function') cur.onLowMemory();
+    } catch (e) {}
+    return freed;
+  },
+
+  /**
+   * 是否处于「单页模式」（scene 1154）
+   *
+   * 从朋友圈分享卡片点进来时就是这个模式。官方明确禁掉了一整批能力，
+   * 对本项目致命的是这三条：
+   *   1) **禁止任何页面跳转** —— navigateTo/redirectTo/reLaunch 全部失败。
+   *      首页的「查看示例」「设置」「打开文件」按钮点了会完全没反应，
+   *      而且是静默失败，用户只会觉得小程序坏了。
+   *   2) showShareMenu / hideShareMenu 被禁用。
+   *   3) storage 与正常模式**不互通** —— 这里看到的「最近文件」永远是空的。
+   * 所以单页模式下要主动降级：把跳转类入口换成一句「点右上角 ··· 打开完整小程序」。
+   */
+  isSinglePageMode() {
+    return this.globalData.scene === 1154;
   },
 
   /**
@@ -156,6 +274,16 @@ App({
 
     if (this._lastFatal === message) return;
     this._lastFatal = message;
+
+    // 正式版不要把调用栈摆到用户面前。
+    // 这个弹窗的本意是「别让失败无声无息」，但对真实用户来说，
+    // 一屏 `at Object.success (app.js:312)` 只会让人以为小程序坏得更彻底，
+    // 而且他既看不懂也无从处理。开发版/体验版才需要原始信息。
+    // （口径与 handlePrivacyFailure 一致：面向开发者的内容只弹给开发者。）
+    if (this.getEnvVersion() === 'release') {
+      wx.showToast({ title: '出了点问题，请重试', icon: 'none', duration: 2000 });
+      return;
+    }
 
     wx.showModal({
       title: title,
@@ -219,6 +347,9 @@ App({
    */
   enableShareMenu(withTimeline) {
     if (!wx.showShareMenu) return;
+    // 单页模式下 showShareMenu 是被官方禁用的接口，调了必然 fail。
+    // 不是错误，只是白调一次，直接跳过省得控制台刷红。
+    if (this.isSinglePageMode()) return;
     var menus = withTimeline
       ? ['shareAppMessage', 'shareTimeline']
       : ['shareAppMessage'];
@@ -240,6 +371,12 @@ App({
    * reLaunch 关掉所有页面重开首页，任何页面栈状态下都成立。
    */
   backToHome() {
+    // 单页模式禁止一切页面跳转，两条路都会 fail。
+    // 与其让按钮再次变成死按钮，不如直说出口在哪。
+    if (this.isSinglePageMode()) {
+      this.explainSinglePageMode();
+      return;
+    }
     wx.navigateBack({
       fail: function() {
         wx.reLaunch({
@@ -249,6 +386,49 @@ App({
           }
         });
       }
+    });
+  },
+
+  /**
+   * 统一的跳转出口
+   *
+   * 单页模式（scene 1154）里 navigateTo 一定失败，而且默认是静默失败：
+   * 用户点「查看示例」「设置」「打开文件」，屏幕上什么都不会发生。
+   * 这是从朋友圈点进来的人 100% 会撞上的，也是最像「小程序坏了」的一种坏法。
+   * 所以所有页面跳转都收敛到这里，单页模式给一次明确说明，其余情况保留 fail 提示。
+   *
+   * @param {string} url
+   * @param {string} [what] 用户视角的动作名，用于失败提示
+   * @returns {boolean} 是否真的发起了跳转
+   */
+  navigate(url, what) {
+    if (this.isSinglePageMode()) {
+      this.explainSinglePageMode();
+      return false;
+    }
+    wx.navigateTo({
+      url: url,
+      fail: function(err) {
+        var msg = (err && err.errMsg) || '';
+        // 页面栈满（10 层）时降级为替换当前页，总比点不动强
+        if (msg.indexOf('limit') >= 0 || msg.indexOf('exceed') >= 0) {
+          wx.redirectTo({ url: url, fail: function() {} });
+          return;
+        }
+        console.error('跳转失败', url, err);
+        wx.showToast({ title: (what || '打开') + '失败', icon: 'none' });
+      }
+    });
+    return true;
+  },
+
+  explainSinglePageMode() {
+    wx.showModal({
+      title: '当前是朋友圈预览模式',
+      content: '从朋友圈打开的小程序只能浏览这一个页面，无法翻页或选择文件。\n\n' +
+        '点右上角「···」→「打开小程序」即可使用全部功能。',
+      showCancel: false,
+      confirmText: '知道了'
     });
   },
 
@@ -329,50 +509,46 @@ App({
    * 处理启动场景
    * scene 1173（聊天素材打开）：从 forwardMaterials 获取文件并跳转阅读器
    */
+  /**
+   * 处理启动场景
+   * scene 1173（聊天素材打开）：从 forwardMaterials 取文件，交由首页跳转阅读器
+   *
+   * ⚠️ 这里**只登记，不跳转**。
+   *
+   * 之前是在这里直接 navigateTo，页面栈为空时退化成 `setTimeout(go, 0)`。
+   * 但 App.onLaunch 跑完之后，首页还要经历代码注入 → onLoad → onReady 才进得了页面栈，
+   * 真机上是几百毫秒量级，`setTimeout 0` 根本等不到 —— navigateTo 失败，
+   * 降级的 redirectTo 同样失败（栈里一个页面都没有），两个 fail 回调又都是空的。
+   * 最终表现：用户在聊天里点了文件，小程序打开后停在首页，什么也没发生，全程静默。
+   *
+   * 现在把文件挂在 globalData 上，由首页 onShow 消费 —— 首页一定会起来，
+   * 而且 onShow 一定在页面栈就绪之后触发，不需要猜任何时序。
+   *
+   * 幂等也随之免费拿到：onLaunch 和 onShow 会带着同一份参数各触发一次，
+   * 两次写的是同一个对象，首页消费一次就置空。
+   * （原先靠 `_lastMaterialToken` 去重，副作用是同一个文件永远打不开第二次。）
+   *
+   * ⚠️ 平台限制：聊天素材打开**目前只在 Android 微信可用**（PC 端需基础库 3.7.6+
+   * 且走拖拽），iOS 上根本不会出现这个入口。所以它永远只能是加分项，
+   * chooseMessageFile 才是保底入口。
+   */
   handleLaunchScene(options) {
     var scene = options && options.scene;
-    if (scene === 1173 && options.forwardMaterials) {
-      const materials = options.forwardMaterials;
-      if (materials && materials.length > 0) {
-        const material = materials[0];
+    if (scene !== 1173 || !options.forwardMaterials) return;
 
-        // 幂等：onLaunch 和 onShow 会带着同一份参数各触发一次，不能开两次。
-        // 但去重必须按素材本身，不能用一次性开关 ——
-        // 之前是 `if (this._scene1173Handled) return`，
-        // 于是同一次启动周期内用户从聊天里点开第二个文件时，小程序完全没反应。
-        var token = (material.path || '') + '|' + (material.size || 0);
-        if (this._lastMaterialToken === token) return;
-        this._lastMaterialToken = token;
-        // material: {type, name, path, size}
-        // 通过全局变量传递文件信息，跳转到阅读器
-        this.globalData.pendingFile = {
-          path: material.path,
-          name: material.name,
-          size: material.size || 0,
-          fromScene: 1173
-        };
-        // ⚠️ onLaunch 阶段页面栈还是空的，此时 navigateTo 必定失败。
-        // 必须等首页起来之后再跳，否则「从聊天点开文件」这条路
-        // 要么没反应，要么直接把用户扔在一个白页上。
-        var url = '/pages/reader/reader?source=material&name=' +
-          encodeURIComponent(material.name || '未命名') +
-          '&size=' + (material.size || 0);
-        var go = function() {
-          wx.navigateTo({
-            url: url,
-            fail: function() {
-              // 页面栈满时降级
-              wx.redirectTo({ url: url, fail: function() {} });
-            }
-          });
-        };
-        if (getCurrentPages().length === 0) {
-          setTimeout(go, 0);
-        } else {
-          go();
-        }
-      }
-    }
+    var materials = options.forwardMaterials;
+    if (!materials || materials.length === 0) return;
+
+    // material: {type, name, path, size}
+    var material = materials[0];
+    if (!material || !material.path) return;
+
+    this.globalData.pendingFile = {
+      path: material.path,
+      name: material.name || '未命名',
+      size: material.size || 0,
+      fromScene: 1173
+    };
   },
 
   /**

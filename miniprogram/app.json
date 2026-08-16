@@ -34,6 +34,12 @@
       "path": "pages/index/index"
     },
     {
+      "materialType": "text/markdown",
+      "name": "用${nickname}阅读",
+      "desc": "渲染Markdown，支持表格代码块",
+      "path": "pages/index/index"
+    },
+    {
       "materialType": "text/plain",
       "name": "用${nickname}阅读",
       "desc": "自动识别GBK等中文编码",

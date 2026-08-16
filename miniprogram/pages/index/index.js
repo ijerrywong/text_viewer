@@ -15,7 +15,10 @@ Page({
     themeClass: '',
     showTip: true,
     showPrivacy: false,
-    recentFiles: []
+    recentFiles: [],
+    // 朋友圈单页模式（scene 1154）：跳转、选文件、剪贴板全被平台禁用，
+    // 首屏必须换一套说明，否则每个按钮都是死按钮
+    singlePage: false
   },
 
   onLoad() {
@@ -34,8 +37,7 @@ Page({
     // 应用主题
     this.applyTheme();
 
-    // 开启转发/朋友圈菜单
-    app.enableShareMenu(true);
+    this.setData({ singlePage: app.isSinglePageMode() });
   },
 
   // ─── 转发 / 分享（Edge E3）───
@@ -53,6 +55,44 @@ Page({
     // 每次显示时刷新主题和最近文件
     this.applyTheme();
     this.loadRecentFiles();
+    this.setData({ singlePage: app.isSinglePageMode() });
+
+    // 转发菜单放 onShow 而不是 onLoad：
+    // wx.showShareMenu 要求页面已经显示，onLoad 阶段页面还没上屏，
+    // 调用可能被忽略 —— 表现就是「右上角没有转发按钮」这种时有时无的怪事。
+    app.enableShareMenu(true);
+
+    // scene 1173：App 只负责把素材登记到 globalData，跳转由这里发起。
+    // 放在 onShow 是因为此刻页面栈一定就绪，不需要赌任何时序（见 app.handleLaunchScene）。
+    this.consumePendingMaterial();
+  },
+
+  /**
+   * 消费「从聊天素材打开」登记的文件
+   *
+   * 只有 fromScene 1173 的才在这里消费：chooseMessageFile / 最近文件那两条路
+   * 是先跳转再由阅读页取 pendingFile，不该被首页截胡。
+   */
+  consumePendingMaterial() {
+    var pending = app.globalData.pendingFile;
+    if (!pending || pending.fromScene !== 1173) return;
+
+    // 去重按**对象身份**，不按 path。
+    // handleLaunchScene 每被调用一次就新建一个对象，所以：
+    //   同一次启动里 onLaunch + onShow 各登记一次 → 只有最后那个对象会走到这里，天然幂等；
+    //   用户过一会儿从聊天里再点同一个文件 → 是个新对象 → 照常打开。
+    // （之前按 path 去重，代价是同一个文件永远只能打开一次。）
+    if (this._consumedMaterial === pending) return;
+    this._consumedMaterial = pending;
+
+    var url = '/pages/reader/reader?source=material&name=' +
+      encodeURIComponent(pending.name || '未命名') +
+      '&size=' + (pending.size || 0);
+
+    // 跳转没发起成功就把标记退回去，留给下一次 onShow 重试
+    if (!app.navigate(url, '打开文件')) {
+      this._consumedMaterial = null;
+    }
   },
 
   /**
@@ -140,6 +180,8 @@ Page({
    * 从聊天选择文件
    */
   chooseFile() {
+    // 单页模式下 chooseMessageFile 属于被禁接口，且选中后也无处跳转
+    if (app.isSinglePageMode()) { app.explainSinglePageMode(); return; }
     // 不传 extension：一旦限定白名单，无后缀文件、大小写后缀（.TXT）、
     // 多段后缀（.tar.gz.txt）在选择器里就直接灰掉了 —— 而 A4/A5 明确要求
     // 「内容嗅探优先于扩展名」。选进来之后再按类型分流（handleSelectedFile），
@@ -170,6 +212,7 @@ Page({
    * 粘贴文本
    */
   pasteText() {
+    if (app.isSinglePageMode()) { app.explainSinglePageMode(); return; }
     wx.getClipboardData({
       success: (res) => {
         const text = res.data;
@@ -183,9 +226,10 @@ Page({
         // 跳转到阅读器，传递粘贴内容
         // 内容通过全局变量传递，避免 URL 过长
         app.globalData.pendingText = text;
-        wx.navigateTo({
-          url: '/pages/reader/reader?source=clipboard&name=' + encodeURIComponent('粘贴文本')
-        });
+        app.navigate(
+          '/pages/reader/reader?source=clipboard&name=' + encodeURIComponent('粘贴文本'),
+          '打开'
+        );
       },
       fail: (err) => {
         const msg = (err && err.errMsg) || '';
@@ -200,6 +244,9 @@ Page({
    * 查看示例文档
    */
   viewSamples() {
+    if (app.isSinglePageMode()) { app.explainSinglePageMode(); return; }
+    // ⚠️ wx.showActionSheet 的 itemList 上限是 6 项，超出会整个调用失败（不是截断）。
+    // 这里 3 项安全；将来加示例时必须同步检查这条硬限制。
     wx.showActionSheet({
       itemList: ['Markdown 示例', 'HTML 示例', 'TXT 示例'],
       success: (res) => {
@@ -207,10 +254,14 @@ Page({
         const names = ['Markdown 示例', 'HTML 示例', 'TXT 示例'];
         const idx = res.tapIndex;
         app.globalData.pendingText = '';
-        wx.navigateTo({
-          url: '/pages/reader/reader?source=sample&name=' + encodeURIComponent(names[idx]) + '&file=' + samples[idx]
-        });
-      }
+        app.navigate(
+          '/pages/reader/reader?source=sample&name=' + encodeURIComponent(names[idx]) +
+          '&file=' + samples[idx],
+          '打开示例'
+        );
+      },
+      // 用户点蒙层取消也会走 fail，不该当成错误
+      fail: function() {}
     });
   },
 
@@ -263,30 +314,63 @@ Page({
         if (res.confirm) {
           // 先复制到本地（防 tempPath 失效）
           var fs = wx.getFileSystemManager();
-          var ext = dotIdx >= 0 ? name.slice(dotIdx + 1) : 'dat';
-          var localPath = wx.env.USER_DATA_PATH + '/temp_open.' + ext;
+          var ext = dotIdx >= 0 ? name.slice(dotIdx + 1).toLowerCase() : '';
+          // ⚠️ 文件名不能固定成 temp_open.xxx：
+          // 上一次打开的同名残留会被 copyFile 覆盖，但 Android 端 openDocument
+          // 有可能仍拿着旧的文件句柄，出现「打开的是上一个文件」这种极难复现的错。
+          // 每次用新名字，顺便让旧的走 LRU 自然过期。
+          var localPath = wx.env.USER_DATA_PATH + '/open_' + Date.now() + '.' + (ext || 'dat');
+          // 上一次转交给微信预览的副本在这里清。
+          // 不在 openDocument 的 complete 里删：success 只代表「预览器打开了」，
+          // 文件这时候还被它占着，删掉会让预览页变成空白。
+          this.sweepOpenTemps(fs);
           fs.copyFile({
             srcPath: file.path,
             destPath: localPath,
             success: () => {
-              wx.openDocument({
+              var opts = {
                 filePath: localPath,
                 showMenu: true,
-                success: () => {
-                  // 打开成功
-                },
-                fail: () => {
+                success: function() {},
+                fail: function(err) {
+                  console.error('openDocument 失败', err);
                   wx.showToast({ title: '打开失败', icon: 'none' });
                 }
-              });
+              };
+              // ⚠️ Android 上不传 fileType 时 openDocument 常常直接失败
+              // （iOS 能从扩展名推断，Android 不能）。这是双端表现不一致的经典来源。
+              if (ext) opts.fileType = ext;
+              wx.openDocument(opts);
             },
-            fail: () => {
+            fail: (err) => {
+              console.error('复制文件失败', err);
               wx.showToast({ title: '文件处理失败', icon: 'none' });
             }
           });
         }
       }
     });
+  },
+
+  /**
+   * 清掉历史遗留的 open_* 临时副本
+   *
+   * 用户文件目录与缓存文件**共用 200MB 的小程序总配额**（官方口径），
+   * 这些几十 MB 的 PDF/PPT 副本本身没有留存价值，攒着只会挤占正文缓存。
+   */
+  sweepOpenTemps(fs) {
+    try {
+      var entries = fs.readdirSync(wx.env.USER_DATA_PATH);
+      for (var i = 0; i < entries.length; i++) {
+        var n = entries[i];
+        // 兼容历史版本留下的固定文件名
+        if (n.indexOf('open_') === 0 || n.indexOf('temp_open.') === 0) {
+          try { fs.unlinkSync(wx.env.USER_DATA_PATH + '/' + n); } catch (e) {}
+        }
+      }
+    } catch (e) {
+      // 目录读不到就算了，这只是顺手做的清理
+    }
   },
 
   /**
@@ -299,9 +383,11 @@ Page({
       name: file.name,
       size: file.size
     };
-    wx.navigateTo({
-      url: '/pages/reader/reader?source=file&name=' + encodeURIComponent(file.name) + '&size=' + file.size
-    });
+    app.navigate(
+      '/pages/reader/reader?source=file&name=' + encodeURIComponent(file.name || '未命名') +
+      '&size=' + (file.size || 0),
+      '打开文件'
+    );
   },
 
   /**
@@ -335,9 +421,11 @@ Page({
       name: file.name,
       size: file.size
     };
-    wx.navigateTo({
-      url: '/pages/reader/reader?source=recent&name=' + encodeURIComponent(file.name) + '&size=' + file.size + '&fileId=' + id
-    });
+    app.navigate(
+      '/pages/reader/reader?source=recent&name=' + encodeURIComponent(file.name || '未命名') +
+      '&size=' + (file.size || 0) + '&fileId=' + encodeURIComponent(id),
+      '打开文件'
+    );
   },
 
   /**
@@ -376,8 +464,6 @@ Page({
    * 跳转设置
    */
   goSettings() {
-    wx.navigateTo({
-      url: '/pages/settings/settings'
-    });
+    app.navigate('/pages/settings/settings', '打开设置');
   }
 });

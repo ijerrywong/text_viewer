@@ -35,7 +35,7 @@ Page({
     this.applyTheme();
 
     // 开启转发/朋友圈菜单
-    app.enableShareMenu();
+    app.enableShareMenu(true);
   },
 
   // ─── 转发 / 分享（Edge E3）───

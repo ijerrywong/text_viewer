@@ -156,16 +156,15 @@ Page({
     this.registerInQueue(source, name, options.file, fileId);
   },
 
-  // ─── 转发 / 分享（Edge E3）───
-  // 只分享小程序卡片，不带任何文件信息，理由见 app.js 的 shareCard 注释
+  // ─── 转发（Edge E3）───
+  // 只分享小程序卡片，不带任何文件信息，理由见 app.js 的 shareCard 注释。
+  // 本页**不提供朋友圈分享**：朋友圈不能自定义 path，分享出去的就是当前页，
+  // 接收方在单页模式打开只会得到一个用不了的页面。详见 app.enableShareMenu 注释。
 
   onShareAppMessage: function() {
     return app.shareCard();
   },
 
-  onShareTimeline: function() {
-    return app.shareToTimeline();
-  },
 
   onShow: function() {
     // 从设置页返回时刷新设置

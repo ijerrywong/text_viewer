@@ -203,13 +203,27 @@ App({
 
   /**
    * 开启分享菜单
-   * 「分享到朋友圈」必须显式加进 menus 才会出现，且展示朋友圈时
-   * 必须同时展示「发送给朋友」。需基础库 2.11+（本项目最低 2.32.3）。
+   *
+   * @param {boolean} [withTimeline] 是否同时开启「分享到朋友圈」
+   *
+   * ⚠️ 朋友圈分享**不能自定义 path**，分享出去的就是当前页面，
+   * 接收方还是在「单页模式」里打开（禁止任何跳转、无登录态、剪贴板等接口被禁）。
+   * 所以只有首页适合分享到朋友圈：
+   *   - 阅读页：接收方没有 source 参数 → 落到「未指定内容来源」错误页，
+   *     而且单页模式下连那个「返回首页」按钮都点不动；
+   *   - 设置页：分享出去毫无意义。
+   * 「发送给朋友」不受此限（onShareAppMessage 可以自定义 path），
+   * 所以三个页面都保留转发，path 统一指向首页。
+   *
+   * 需基础库 2.11+（本项目最低 2.32.3）。展示朋友圈时必须同时展示发送给朋友。
    */
-  enableShareMenu() {
+  enableShareMenu(withTimeline) {
     if (!wx.showShareMenu) return;
+    var menus = withTimeline
+      ? ['shareAppMessage', 'shareTimeline']
+      : ['shareAppMessage'];
     wx.showShareMenu({
-      menus: ['shareAppMessage', 'shareTimeline'],
+      menus: menus,
       fail: function() {}
     });
   },

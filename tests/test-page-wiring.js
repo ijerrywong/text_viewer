@@ -196,10 +196,21 @@ console.log('\n转发 / 分享');
 pages.forEach(function (p) {
   var js = read(path.join(ROOT, p + '.js')) || '';
   var name = p.split('/').pop();
+  // 转发对每个页面都要有：onShareAppMessage 可以自定义 path，
+  // 三个页面都把 path 指向首页，接收方点开必定可用
   ok(name + '：定义了 onShareAppMessage（否则不可转发）',
     /onShareAppMessage\s*[:(]/.test(js));
-  ok(name + '：定义了 onShareTimeline（否则不可分享到朋友圈）',
-    /onShareTimeline\s*[:(]/.test(js));
+
+  // 朋友圈**只有首页该有**：朋友圈不能自定义 path，分享出去的就是当前页，
+  // 接收方在单页模式打开阅读页只会落到「未指定内容来源」，
+  // 而单页模式禁止跳转，那个「返回首页」按钮也点不动
+  var hasTimeline = /onShareTimeline\s*[:(]/.test(js);
+  if (name === 'index') {
+    ok('index：定义了 onShareTimeline（首页是唯一适合的朋友圈落地页）', hasTimeline);
+  } else {
+    ok(name + '：未定义 onShareTimeline（该页分享到朋友圈会给接收方一个死页面）',
+      !hasTimeline);
+  }
 });
 
 // 分享出去的必须是小程序卡片，不能夹带本机文件信息

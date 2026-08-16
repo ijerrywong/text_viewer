@@ -116,13 +116,9 @@ Page({
   denyPrivacy() {
     this.setData({ showPrivacy: false });
     app.resolvePrivacy(false);
-    // 文案不能写死「选择文件」——粘贴文本、复制链接同样会走到这里。
-    // 拒绝之后接口的 fail 回调会接手，由 handlePrivacyFailure 给出重新授权的入口，
-    // 所以这里只做一个中性的确认，不抢那句说明。
-    wx.showToast({
-      title: '已拒绝，功能暂不可用',
-      icon: 'none'
-    });
+    // 这里不再自己弹提示：resolvePrivacy(false) 会让挂起的接口立即 fail，
+    // 而 fail 回调统一走 app.handlePrivacyFailure，那边会给出唯一的一次提示。
+    // 两处都弹的话，用户点一次「拒绝」会连着看到两个提示。
   },
 
   /**
@@ -148,10 +144,7 @@ Page({
         if (msg.includes('cancel')) return;
         // 隐私类失败交给统一处理：它会区分「后台指引没配」和「用户拒绝了」，
         // 并给出各自能照着做的下一步 —— 而不是一个飘过就没了的 toast（F6）
-        if (app.handlePrivacyFailure(err, '选择聊天文件', '收集你选中的文件',
-              () => this.chooseFile())) {
-          return;
-        }
+        if (app.handlePrivacyFailure(err, '选择聊天文件', '收集你选中的文件')) return;
         console.error('选择文件失败', err);
         wx.showToast({ title: '选择文件失败', icon: 'none' });
       }
@@ -182,10 +175,7 @@ Page({
       fail: (err) => {
         const msg = (err && err.errMsg) || '';
         if (msg.includes('cancel')) return;
-        if (app.handlePrivacyFailure(err, '读取剪贴板', '读取你的剪切板',
-              () => this.pasteText())) {
-          return;
-        }
+        if (app.handlePrivacyFailure(err, '读取剪贴板', '读取你的剪切板')) return;
         wx.showToast({ title: '读取剪贴板失败', icon: 'none' });
       }
     });

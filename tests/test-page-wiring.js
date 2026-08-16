@@ -318,6 +318,47 @@ scanJs(ROOT);
 ok('没有使用需要转译的新语法（可选链 / 空值合并 / 对象展开）',
   risky.length === 0, risky.join('; '));
 
+// ─── 授权流程不得成环 ───
+
+console.log('\n授权流程');
+
+/**
+ * 隐私失败处理不得再接受「重试」回调。
+ *
+ * 曾经的写法是在用户拒绝后弹一个带「重新授权」按钮的 modal，点了就重调原接口。
+ * 于是形成闭环：拒绝 → 弹窗 → 重试 → 又触发授权询问 → 拒绝 → …
+ * 用户点多少次都出不来，真机已复现（docs/verify-notes.md §16）。
+ * 拒绝是明确的意愿表达，提示一次即止；用户改主意时再点一次入口按钮即可。
+ */
+var loopRisk = [];
+function scanPrivacyLoop(dir) {
+  fs.readdirSync(dir).forEach(function (f) {
+    var full = path.join(dir, f);
+    if (fs.statSync(full).isDirectory()) return scanPrivacyLoop(full);
+    if (!/\.js$/.test(f)) return;
+    var src = (read(full) || '').replace(/\s+/g, ' ');
+    var rel = path.relative(ROOT, full);
+
+    // 定义处：形参里不得出现 retry / callback 之类的回调
+    var def = /handlePrivacyFailure\s*\(([^)]*)\)\s*\{/.exec(src);
+    if (def && /retry|callback|cb\b/i.test(def[1])) {
+      loopRisk.push(rel + ' 定义仍接受重试回调: (' + def[1].trim() + ')');
+    }
+    // 调用处：不得传入函数实参
+    var callRe = /handlePrivacyFailure\s*\(([^;]*?)\)\s*\)?\s*(?:\{|;|\))/g;
+    var m;
+    while ((m = callRe.exec(src)) !== null) {
+      if (/=>|function\s*\(/.test(m[1])) {
+        loopRisk.push(rel + ' 调用处传入了回调: ' + m[1].trim().slice(0, 60));
+      }
+    }
+  });
+}
+scanPrivacyLoop(ROOT);
+
+ok('隐私授权失败后不提供会成环的「重试」回调',
+  loopRisk.length === 0, loopRisk.join('; '));
+
 // ─── 汇总 ───
 
 console.log('\n' + '='.repeat(40));

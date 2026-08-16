@@ -342,7 +342,6 @@ App({
    * @param {Object} err - 接口的 fail 回调参数
    * @param {string} actionLabel - 用户视角的动作名，如「选择聊天文件」
    * @param {string} declareName - 该接口在指引里对应的声明项名称
-   * @param {Function} [onRetry] - 用户选择重试时回调
    * @returns {boolean} 是否是隐私类失败（false 表示调用方该按普通错误处理）
    */
   /**
@@ -359,7 +358,7 @@ App({
     }
   },
 
-  handlePrivacyFailure(err, actionLabel, declareName, onRetry) {
+  handlePrivacyFailure(err, actionLabel, declareName) {
     var errMsg = (err && err.errMsg) || '';
     if (errMsg.indexOf('privacy') < 0) return false;
 
@@ -395,22 +394,18 @@ App({
       return true;
     }
 
-    // 问过了，是用户当时选了拒绝 → 给一条回头路，而不是一个飘过的 toast
-    var self = this;
-    wx.showModal({
-      title: '还需要你的授权',
-      content: '「' + actionLabel + '」需要你同意隐私说明后才能进行。\n\n' +
-        '本小程序所有内容都在你手机本地解析，全程不上传任何服务器。',
-      confirmText: '重新授权',
-      cancelText: '暂不',
-      success: function(res) {
-        if (res.confirm && typeof onRetry === 'function') {
-          // 再调一次接口就会重新触发授权流程
-          self.globalData.privacyAuthorized = false;
-          onRetry();
-        }
-      }
-    });
+    // 用户刚刚点了「拒绝」。
+    //
+    // ⚠️ 这里曾经弹一个「还需要你的授权」+「重新授权」的 modal，本意是
+    // "别让用户走进死路"，结果造出了一个闭环：
+    //   拒绝 → 弹 modal → 点「重新授权」→ 重调接口 → 又触发授权询问 → 拒绝 → ...
+    // 而且「重新授权」被放在主按钮位置，唯一的出口「暂不」反而是次要按钮，
+    // 等于在鼓励用户留在环里。真机上已复现（见 docs/verify-notes.md §16）。
+    //
+    // 现在只说一次就结束。用户点「拒绝」本身就是明确的意愿表达，
+    // 紧接着再追问一次是骚扰；他改主意时再点一次入口按钮，
+    // 自然会重新触发授权流程 —— 重试入口本来就一直在那儿，不需要我们替他着急。
+    wx.showToast({ title: '已取消授权', icon: 'none', duration: 2000 });
     return true;
   },
 

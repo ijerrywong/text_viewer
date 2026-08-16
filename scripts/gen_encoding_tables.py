@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""
+Generate GBK and Big5 lookup tables for the WeChat mini program.
+
+WeChat mini programs have no TextDecoder, so we need self-implemented decoders.
+This script generates compact Base64-encoded Uint16Array tables that map
+GBK/Big5 two-byte indices to Unicode code points.
+
+Output: miniprogram/core/encoding/tables.js
+"""
+
+import base64
+import struct
+import os
+
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'miniprogram', 'core', 'encoding')
+
+def gen_gbk_table():
+    """
+    Generate GBK two-byte → Unicode mapping table.
+
+    GBK two-byte encoding:
+    - First byte: 0x81-0xFE (126 values)
+    - Second byte: 0x40-0x7E, 0x80-0xFE (190 values, 0x7F excluded)
+
+    Index = (b1 - 0x81) * 190 + offset
+    where offset = b2 - 0x40 if b2 <= 0x7E, else b2 - 0x80 + 63
+
+    Total entries: 126 * 190 = 23,940
+    """
+    TABLE_SIZE = 126 * 190  # 23940
+    table = [0xFFFD] * TABLE_SIZE  # Default: replacement character
+
+    for b1 in range(0x81, 0xFF):
+        for b2 in range(0x40, 0xFF):
+            if b2 == 0x7F:
+                continue
+            # Calculate index
+            if b2 <= 0x7E:
+                offset = b2 - 0x40
+            else:
+                offset = b2 - 0x80 + 63
+
+            idx = (b1 - 0x81) * 190 + offset
+            if idx >= TABLE_SIZE:
+                continue
+
+            # Decode using Python's gb18030 codec.
+            # NOT 'gbk': gb18030 additionally assigns ~2100 two-byte cells that
+            # gbk leaves undefined (mostly PUA). Generating from 'gbk' left those
+            # cells as U+FFFD, so real GB18030 text hit replacement characters.
+            try:
+                char = bytes([b1, b2]).decode('gb18030')
+                cp = ord(char)
+                if cp <= 0xFFFF:
+                    table[idx] = cp
+            except (UnicodeDecodeError, ValueError):
+                pass  # Keep 0xFFFD
+
+    return table
+
+def gen_big5_table():
+    """
+    Generate Big5 two-byte → Unicode mapping table.
+
+    Big5 two-byte encoding:
+    - First byte: 0xA1-0xF9 (89 values)
+    - Second byte: 0x40-0x7E, 0xA1-0xFE (157 values, 0x7F excluded)
+
+    Index = (b1 - 0xA1) * 157 + offset
+    where offset = b2 - 0x40 if b2 <= 0x7E, else b2 - 0xA1 + 63
+
+    Total entries: 89 * 157 = 13,973
+    """
+    # Big5 lead byte range: 0xA1-0xF9
+    LEAD_START = 0xA1
+    LEAD_END = 0xF9  # inclusive
+    LEAD_COUNT = LEAD_END - LEAD_START + 1  # 89
+
+    # Big5 trail byte range: 0x40-0x7E (63 values) + 0xA1-0xFE (94 values) = 157
+    TRAIL_COUNT = 157
+
+    TABLE_SIZE = LEAD_COUNT * TRAIL_COUNT
+    table = [0xFFFD] * TABLE_SIZE
+
+    for b1 in range(LEAD_START, LEAD_END + 1):
+        for b2 in list(range(0x40, 0x7F)) + list(range(0xA1, 0xFF)):
+            # Calculate offset
+            if b2 <= 0x7E:
+                offset = b2 - 0x40
+            else:
+                offset = b2 - 0xA1 + 63
+
+            idx = (b1 - LEAD_START) * TRAIL_COUNT + offset
+            if idx >= TABLE_SIZE:
+                continue
+
+            try:
+                char = bytes([b1, b2]).decode('big5')
+                cp = ord(char)
+                if cp <= 0xFFFF:
+                    table[idx] = cp
+            except (UnicodeDecodeError, ValueError):
+                pass
+
+    return table
+
+def gen_gb18030_ranges():
+    """
+    Generate the GB18030 four-byte BMP range table.
+
+    The four-byte BMP region (lead 0x81-0x84) does NOT map linearly to Unicode:
+    it enumerates every BMP code point that the one/two-byte regions cannot
+    express, so the pointer→code-point delta jumps at each gap. WHATWG models
+    this as a list of (pointer, codePoint) range starts; we derive the exact
+    same list from Python's authoritative gb18030 codec.
+
+    Decoding: find the last range whose pointer <= p, then
+        codePoint = rangeCodePoint + (p - rangePointer)
+
+    Returns a list of (pointer, code_point) tuples.
+    """
+    ranges = []
+    prev_delta = None
+    for p in range(0, 39420):
+        b1 = 0x81 + p // 12600
+        rest = p % 12600
+        b2 = 0x30 + rest // 1260
+        rest %= 1260
+        b3 = 0x81 + rest // 10
+        b4 = 0x30 + rest % 10
+        try:
+            ch = bytes([b1, b2, b3, b4]).decode('gb18030')
+        except (UnicodeDecodeError, ValueError):
+            continue
+        if len(ch) != 1:
+            continue
+        cp = ord(ch)
+        if cp > 0xFFFF:
+            continue
+        delta = cp - p
+        if prev_delta is None or delta != prev_delta:
+            ranges.append((p, cp))
+            prev_delta = delta
+    return ranges
+
+
+def write_gb18030_ranges(ranges, filepath):
+    """Write the four-byte BMP range table as a JS module."""
+    pointers = ','.join(str(p) for p, _ in ranges)
+    codepoints = ','.join(str(c) for _, c in ranges)
+    content = f"""/**
+ * core/encoding/{os.path.basename(filepath)}
+ * Auto-generated by scripts/gen_encoding_tables.py
+ *
+ * GB18030 four-byte BMP range table ({len(ranges)} ranges).
+ *
+ * The four-byte BMP region (lead 0x81-0x84) is NOT a linear offset from the
+ * pointer — it enumerates the BMP code points the one/two-byte regions cannot
+ * express, so the delta jumps at every gap. Decode by finding the last range
+ * whose pointer <= p (binary search), then:
+ *   codePoint = codePoints[k] + (p - pointers[k])
+ *
+ * Supplementary planes (lead 0x90-0xE3) ARE linear and need no table:
+ *   codePoint = 0x10000 + (b1-0x90)*12600 + (b2-0x30)*1260 + (b3-0x81)*10 + (b4-0x30)
+ */
+
+module.exports = {{
+  pointers: [{pointers}],
+  codePoints: [{codepoints}]
+}};
+"""
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(content)
+    return len(content)
+
+
+def table_to_base64(table):
+    """Convert a list of uint16 values to a Base64 string."""
+    # Pack as little-endian uint16 array
+    raw = struct.pack('<%dH' % len(table), *table)
+    return base64.b64encode(raw).decode('ascii')
+
+def write_js_table(name, table, lead_start, trail_ranges, trail_count, filepath):
+    """Write a lookup table as a JS module."""
+    b64 = table_to_base64(table)
+    mapped_count = sum(1 for v in table if v != 0xFFFD)
+
+    content = f"""/**
+ * core/encoding/{os.path.basename(filepath)}
+ * Auto-generated by scripts/gen_encoding_tables.py
+ *
+ * {name} two-byte → Unicode lookup table
+ * Format: Base64-encoded little-endian Uint16Array
+ * Table size: {len(table)} entries ({len(table) * 2} bytes raw, {len(b64)} bytes Base64)
+ * Mapped entries: {mapped_count} / {len(table)}
+ *
+ * Index calculation:
+ *   lead byte range: 0x{lead_start:02X}
+ *   trail byte ranges: {trail_ranges}
+ *   trail count: {trail_count}
+ *   index = (b1 - 0x{lead_start:02X}) * {trail_count} + trail_offset
+ */
+
+module.exports = '{b64}';
+"""
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    return len(b64), mapped_count
+
+if __name__ == '__main__':
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    print('Generating GBK table...')
+    gbk_table = gen_gbk_table()
+    gbk_size, gbk_mapped = write_js_table(
+        'GBK',
+        gbk_table,
+        0x81,
+        '0x40-0x7E, 0x80-0xFE',
+        190,
+        os.path.join(OUTPUT_DIR, 'gbk-table.js')
+    )
+    print(f'  Table size: {len(gbk_table)} entries, {gbk_mapped} mapped, Base64: {gbk_size} bytes')
+
+    print('Generating Big5 table...')
+    big5_table = gen_big5_table()
+    big5_size, big5_mapped = write_js_table(
+        'Big5',
+        big5_table,
+        0xA1,
+        '0x40-0x7E, 0xA1-0xFE',
+        157,
+        os.path.join(OUTPUT_DIR, 'big5-table.js')
+    )
+    print(f'  Table size: {len(big5_table)} entries, {big5_mapped} mapped, Base64: {big5_size} bytes')
+
+    print('Generating GB18030 four-byte BMP ranges...')
+    ranges = gen_gb18030_ranges()
+    ranges_size = write_gb18030_ranges(
+        ranges,
+        os.path.join(OUTPUT_DIR, 'gb18030-ranges.js')
+    )
+    print(f'  {len(ranges)} ranges, {ranges_size} bytes')
+
+    print(f'\nDone! Tables written to {OUTPUT_DIR}')
+    print(f'Total Base64 size: {gbk_size + big5_size} bytes ({(gbk_size + big5_size) / 1024:.1f} KB)')

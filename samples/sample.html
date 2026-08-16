@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML 示例文档</title>
+<style>
+  body {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    max-width: 100%;
+    margin: 0;
+    padding: 20px;
+    line-height: 1.8;
+    color: #333;
+  }
+  h1 { color: #576b95; border-bottom: 2px solid #576b95; padding-bottom: 10px; }
+  h2 { color: #333; margin-top: 30px; }
+  .card {
+    background: #f5f5f5;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 16px 0;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #576b95;
+    color: #fff;
+    font-size: 12px;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+  th { background: #f5f5f5; }
+  code { background: #f6f8fa; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+</style>
+</head>
+<body>
+
+<h1>HTML 示例文档</h1>
+
+<p>这是一份展示 HTML 渲染能力的示例文档。所有内容均在你的手机本地解析渲染，<strong>不上传任何服务器</strong>。</p>
+
+<div class="card">
+  <span class="tag">提示</span>
+  <p>HTML 文档中的 <code>&lt;style&gt;</code> 标签内的 CSS 会被解析并应用。</p>
+</div>
+
+<h2>特性列表</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>功能</th>
+      <th>状态</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>内联 CSS</td>
+      <td>支持</td>
+      <td>style 标签和属性</td>
+    </tr>
+    <tr>
+      <td>base64 图片</td>
+      <td>支持</td>
+      <td>自动抽取落盘</td>
+    </tr>
+    <tr>
+      <td>表格</td>
+      <td>支持</td>
+      <td>含表头和单元格</td>
+    </tr>
+    <tr>
+      <td>代码块</td>
+      <td>支持</td>
+      <td>等宽字体渲染</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>代码示例</h2>
+
+<pre><code>function greet(name) {
+  return `Hello, ${name}!`;
+}
+
+console.log(greet("World"));</code></pre>
+
+<h2>安全说明</h2>
+
+<p>所有 <code>&lt;script&gt;</code> 标签、事件属性（如 <code>onclick</code>）和危险链接（如 <code>javascript:</code>）都会被自动剥离。</p>
+
+<h2>结语</h2>
+
+<p>这份示例文档展示了纯文本阅读器的 HTML 渲染能力。复杂 CSS 布局会降级为「阅读模式」提取正文。</p>
+
+</body>
+</html>

@@ -183,6 +183,69 @@ pages.forEach(function (p) {
   }
 });
 
+// ─── 自定义组件 ───
+
+console.log('\n自定义组件');
+
+/**
+ * usingComponents 里的路径必须指向真实存在的组件。
+ * 路径写错时页面直接渲染不出来 —— 又是一个"真机白屏、报错还不明显"的坑。
+ */
+function checkUsingComponents(jsonPath, label) {
+  var raw = read(jsonPath);
+  if (!raw) return;
+  var conf;
+  try {
+    conf = JSON.parse(raw);
+  } catch (e) {
+    ok(label + ' 的 json 合法', false, e.message);
+    return;
+  }
+  var uc = conf.usingComponents || {};
+  Object.keys(uc).forEach(function (name) {
+    var p = uc[name];
+    // 以 / 开头是相对小程序根目录，否则相对当前文件
+    var base = p.charAt(0) === '/'
+      ? path.join(ROOT, p)
+      : path.join(path.dirname(jsonPath), p);
+    ['js', 'json', 'wxml'].forEach(function (ext) {
+      ok(label + ' → 组件 ' + name + '.' + ext + ' 存在',
+        fs.existsSync(base + '.' + ext), base + '.' + ext);
+    });
+    // 组件的 json 必须声明 component: true，否则会被当成页面
+    var cjson = read(base + '.json');
+    if (cjson) {
+      var ok2 = false;
+      try { ok2 = JSON.parse(cjson).component === true; } catch (e) {}
+      ok(label + ' → 组件 ' + name + ' 声明了 component: true', ok2);
+    }
+  });
+}
+
+pages.forEach(function (p) {
+  checkUsingComponents(path.join(ROOT, p + '.json'), p.split('/').pop());
+});
+
+// 组件自身的 WXML ↔ JS 接线（与页面同样的规则）
+var compDir = path.join(ROOT, 'components');
+if (fs.existsSync(compDir)) {
+  fs.readdirSync(compDir).forEach(function (d) {
+    var base = path.join(compDir, d, d);
+    var wxml = read(base + '.wxml');
+    var js = read(base + '.js');
+    if (!wxml || !js) return;
+    var handlers = {};
+    var m;
+    BIND_RE.lastIndex = 0;
+    while ((m = BIND_RE.exec(wxml)) !== null) handlers[m[2].trim()] = true;
+    var missing = Object.keys(handlers).filter(function (h) {
+      return !new RegExp('(^|[\\s,{])' + h + '\\s*[:(]', 'm').test(js);
+    });
+    ok('组件 ' + d + '：事件处理函数都已定义',
+      missing.length === 0, JSON.stringify(missing));
+  });
+}
+
 // ─── WXML 里的字符写法 ───
 
 console.log('\nWXML 字符写法');

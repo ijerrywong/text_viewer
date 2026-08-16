@@ -108,9 +108,10 @@ Page({
     this.setData({ showPrivacy: true });
   },
 
-  grantPrivacy() {
+  // 由 privacy-dialog 组件的 open-type 按钮触发，事件里带回按钮 id
+  grantPrivacy(e) {
     this.setData({ showPrivacy: false });
-    app.resolvePrivacy(true);
+    app.resolvePrivacy(true, e && e.detail && e.detail.buttonId);
   },
 
   denyPrivacy() {

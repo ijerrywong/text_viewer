@@ -1,0 +1,28 @@
+<!--
+  隐私授权弹窗
+
+  ⚠️ 「同意」必须是 <button open-type="agreePrivacyAuthorization">，不能用普通 view。
+  微信要确认"确实有用户点了一个真的同意按钮"，而不是小程序的 JS 自己决定说同意
+  （否则任何小程序都能静默自授权）。回传时还要带上这个按钮的 id：
+      resolve({ event: 'agree', buttonId: 'agree-privacy-btn' })
+  用普通 view + resolve({event:'agree'}) 时微信不认，接口照样以 privacy 错误失败，
+  表现就是"我点了同意，它却说已取消授权"。
+-->
+<view class="privacy-mask" wx:if="{{visible}}">
+  <view class="privacy-dialog">
+    <text class="privacy-title">隐私保护说明</text>
+    <text class="privacy-desc">
+      本小程序所有文件均在你的手机本地解析渲染，全程不上传任何服务器，无云端存储。
+      选择文件和读取剪贴板需要你的授权。
+    </text>
+    <view class="privacy-actions">
+      <view class="privacy-btn privacy-btn-deny" bindtap="onDeny">拒绝</view>
+      <button
+        id="agree-privacy-btn"
+        class="privacy-btn privacy-btn-agree"
+        open-type="agreePrivacyAuthorization"
+        bindagreeprivacyauthorization="onAgree"
+      >同意并继续</button>
+    </view>
+  </view>
+</view>

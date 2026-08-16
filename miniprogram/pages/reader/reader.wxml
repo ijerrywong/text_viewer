@@ -419,4 +419,7 @@
       </view>
     </scroll-view>
   </view>
+
+  <!-- 隐私授权弹窗（与首页共用组件）-->
+  <privacy-dialog visible="{{showPrivacy}}" bindagree="grantPrivacy" binddeny="denyPrivacy" />
 </view>

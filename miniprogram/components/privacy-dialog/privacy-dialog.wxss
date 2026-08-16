@@ -1,0 +1,84 @@
+/* 隐私授权弹窗
+ * 样式从 pages/index/index.wxss 搬来，改成组件后两个页面共用。
+ * 颜色一律走主题变量：CSS 自定义属性会穿透组件样式隔离正常继承，
+ * 所以深色/护眼主题下弹窗会跟着变，不会像原生 wx.showModal 那样跟系统跑。 */
+
+.privacy-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.privacy-dialog {
+  width: 600rpx;
+  padding: 48rpx 40rpx;
+  background-color: var(--bg-primary);
+  border-radius: 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.privacy-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 24rpx;
+}
+
+.privacy-desc {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 40rpx;
+}
+
+.privacy-actions {
+  display: flex;
+  gap: 24rpx;
+  width: 100%;
+}
+
+/* 两个按钮要长得一样，但「同意」必须是 button 组件（open-type 的要求），
+ * 「拒绝」是 view。button 自带一堆默认样式，得先抹平再套统一外观。 */
+.privacy-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  padding: 0;
+  margin: 0;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: normal;
+  line-height: 1;
+}
+
+/* 去掉 button 组件的默认 1px 边框 */
+.privacy-btn::after {
+  border: none;
+}
+
+.privacy-btn-deny {
+  border: 1rpx solid var(--border);
+  color: var(--text-primary);
+  background-color: transparent;
+}
+
+.privacy-btn-agree {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+.privacy-btn-agree:active,
+.privacy-btn-deny:active {
+  opacity: 0.7;
+}

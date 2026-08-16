@@ -405,6 +405,25 @@ App({
     // 现在只说一次就结束。用户点「拒绝」本身就是明确的意愿表达，
     // 紧接着再追问一次是骚扰；他改主意时再点一次入口按钮，
     // 自然会重新触发授权流程 —— 重试入口本来就一直在那儿，不需要我们替他着急。
+    // 开发版/体验版把原始 errMsg 摆出来。
+    // 只给用户看「已取消授权」的话，我们连微信到底报的什么都不知道 ——
+    // "点了同意却提示已取消"这类问题，errMsg 是唯一能定案的证据。
+    // 注意这个弹窗是终止性的：没有重试按钮，不会重新构成环路。
+    if (this.getEnvVersion() !== 'release') {
+      wx.showModal({
+        title: '授权未通过（仅开发版可见）',
+        content: actionLabel + '\n\n' + errMsg,
+        confirmText: '复制',
+        cancelText: '知道了',
+        success: function(res) {
+          if (res.confirm) {
+            wx.setClipboardData({ data: errMsg, fail: function() {} });
+          }
+        }
+      });
+      return true;
+    }
+
     wx.showToast({ title: '已取消授权', icon: 'none', duration: 2000 });
     return true;
   },
@@ -413,9 +432,15 @@ App({
    * 解析隐私授权回调
    * @param {boolean} agreed - 用户是否同意
    */
-  resolvePrivacy(agreed) {
+  resolvePrivacy(agreed, buttonId) {
     if (this.globalData.privacyResolve) {
-      this.globalData.privacyResolve({ event: agreed ? 'agree' : 'disagree' });
+      var payload = { event: agreed ? 'agree' : 'disagree' };
+      // 「同意」必须带上触发它的那个 open-type 按钮的 id。
+      // 微信要确认确实有用户点了一个它认可的同意按钮，而不是小程序自己说同意 ——
+      // 少了 buttonId 时这次 agree 可能不被采纳，接口照样以 privacy 错误失败，
+      // 表现就是"我点了同意，它却提示已取消授权"。
+      if (agreed && buttonId) payload.buttonId = buttonId;
+      this.globalData.privacyResolve(payload);
       this.globalData.privacyResolve = null;
     }
     if (agreed) {

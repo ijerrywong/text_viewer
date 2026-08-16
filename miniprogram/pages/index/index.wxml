@@ -105,18 +105,6 @@
     <view style="height: 60rpx;"></view>
   </scroll-view>
 
-  <!-- 隐私授权弹窗 -->
-  <view class="privacy-mask" wx:if="{{showPrivacy}}">
-    <view class="privacy-dialog">
-      <text class="privacy-title">隐私保护说明</text>
-      <text class="privacy-desc">
-        本小程序所有文件均在你的手机本地解析渲染，全程不上传任何服务器，无云端存储。
-        选择文件和读取剪贴板需要你的授权。
-      </text>
-      <view class="privacy-actions">
-        <view class="btn btn-outline" bindtap="denyPrivacy">拒绝</view>
-        <view class="btn btn-primary" bindtap="grantPrivacy">同意并继续</view>
-      </view>
-    </view>
-  </view>
+  <!-- 隐私授权弹窗（共享组件；「同意」必须是 open-type 按钮，见组件内注释） -->
+  <privacy-dialog visible="{{showPrivacy}}" bindagree="grantPrivacy" binddeny="denyPrivacy" />
 </view>

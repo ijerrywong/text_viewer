@@ -1,4 +1,6 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "privacy-dialog": "/components/privacy-dialog/privacy-dialog"
+  },
   "navigationStyle": "custom"
 }

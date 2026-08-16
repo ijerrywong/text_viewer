@@ -409,3 +409,46 @@ mp.weixin.qq.com → 设置 → 服务内容声明 → 用户隐私保护指引�
 **已加静态检查**（`tests/test-page-wiring.js`）：
 `handlePrivacyFailure` 的定义不得含 retry/callback 形参，调用处不得传入函数实参。
 注入回归验证过确实会失败。
+
+### 16.1 点了「同意」却提示已取消 —— agree 必须由官方按钮组件回传
+
+**现象**：在自定义隐私弹窗点「同意并继续」，接口仍以 privacy 错误失败，
+提示「已取消授权」。
+
+**机制**：微信的自定义隐私弹窗是**两段式**的，收到用户点击只是第一步，
+必须把结果回传给微信：
+
+```
+微信 → onNeedPrivacyAuthorization(resolve)   微信在等你的答复
+你   → 弹自己的弹窗，问用户
+用户 → 点同意
+你   → resolve({ event:'agree', buttonId:'...' })   ← 不调这句，微信一直挂着
+微信 → 放行接口
+```
+
+**关键**：「同意」这一侧微信有额外要求 —— 必须由
+`<button open-type="agreePrivacyAuthorization">` 触发，并在回传时带上该按钮的 `id`。
+这是反作弊设计：微信要确认确实有用户点了一个它认可的同意按钮，
+而不是小程序的 JS 自己决定说同意（否则任何小程序都能静默自授权）。
+
+原来的写法是普通 `<view bindtap="grantPrivacy">` + `resolve({event:'agree'})`，
+**没有 buttonId**，微信不采纳这次 agree，接口照样失败。
+
+**修复**：
+- 新建共享组件 `components/privacy-dialog/`，「同意」改为
+  `<button id="agree-privacy-btn" open-type="agreePrivacyAuthorization"
+   bindagreeprivacyauthorization="onAgree">`
+- `resolvePrivacy(agreed, buttonId)` 在 agree 时带上 buttonId
+- **阅读页也接入同一组件**：它同样要用隐私接口（复制链接/代码走 `setClipboardData`），
+  以前没有自定义弹窗、退化成 `wx.showModal` 兜底 ——
+  而原生 modal 里根本放不进 open-type 按钮，那条路的「同意」压根没法正确回传
+- 开发版/体验版把原始 errMsg 弹出来（终止性弹窗，无重试按钮，不构成 §16 的环）
+
+⚠️ **仍需核对**：`buttonId` 对 `event:'agree'` 是必需还是可选、
+`bindagreeprivacyauthorization` 的确切事件名、不同基础库版本的差异。
+以上依据是 API 设计意图推断，**未核对官方文档**。
+真机跑一次、看开发版弹出的 errMsg 即可定案。
+
+**已加静态检查**：`usingComponents` 路径必须指向真实存在的组件三件套、
+组件 json 必须声明 `component: true`、组件自身 WXML 绑的处理函数必须存在。
+（路径写错会直接白屏，又是一类"真机才暴露"的问题。注入回归验证过会失败。）

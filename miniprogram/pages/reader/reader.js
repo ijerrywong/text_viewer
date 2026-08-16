@@ -78,6 +78,8 @@ Page({
     // 粘贴内容默认不落盘，需要用户显式保存（E10）
     canSaveClipboard: false,
     searchTruncated: false,
+    // 隐私授权弹窗
+    showPrivacy: false,
 
     // 设置
     fontSize: 16,
@@ -176,6 +178,27 @@ Page({
       clearTimeout(this._scrollTimer);
       this._scrollTimer = null;
     }
+  },
+
+  // ─── 隐私授权 ───
+  //
+  // 阅读页也会用到隐私接口（复制链接 / 复制代码走 wx.setClipboardData）。
+  // 以前这里没有自定义弹窗，app.js 退化成 wx.showModal 兜底 ——
+  // 而原生 modal 里放不进 <button open-type="agreePrivacyAuthorization">，
+  // 那条路的「同意」压根没法带 buttonId 正确回传给微信。
+
+  showPrivacyDialog: function() {
+    this.setData({ showPrivacy: true });
+  },
+
+  grantPrivacy: function(e) {
+    this.setData({ showPrivacy: false });
+    app.resolvePrivacy(true, e && e.detail && e.detail.buttonId);
+  },
+
+  denyPrivacy: function() {
+    this.setData({ showPrivacy: false });
+    app.resolvePrivacy(false);
   },
 
   // ─── 设置 ───

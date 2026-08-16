@@ -1,0 +1,150 @@
+<!--
+  settings.wxml - 设置页
+  主题 / 字号 / 行距 / 字体 / 网络图片 / 清缓存 / 关于
+-->
+<view class="page {{themeClass}}">
+  <!-- 主题 -->
+  <view class="settings-group">
+    <view class="group-title">阅读主题</view>
+    <view class="theme-options">
+      <view
+        class="theme-option {{settings.theme === 'light' ? 'active' : ''}}"
+        data-theme="light"
+        bindtap="setTheme"
+      >
+        <view class="theme-preview theme-preview-light">
+          <text class="theme-preview-text">Aa</text>
+        </view>
+        <text class="theme-name">浅色</text>
+      </view>
+      <view
+        class="theme-option {{settings.theme === 'dark' ? 'active' : ''}}"
+        data-theme="dark"
+        bindtap="setTheme"
+      >
+        <view class="theme-preview theme-preview-dark">
+          <text class="theme-preview-text">Aa</text>
+        </view>
+        <text class="theme-name">深色</text>
+      </view>
+      <view
+        class="theme-option {{settings.theme === 'sepia' ? 'active' : ''}}"
+        data-theme="sepia"
+        bindtap="setTheme"
+      >
+        <view class="theme-preview theme-preview-sepia">
+          <text class="theme-preview-text">Aa</text>
+        </view>
+        <text class="theme-name">护眼</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 字号 -->
+  <view class="settings-group">
+    <view class="group-title">字号 <text class="group-value">{{settings.fontSize}}px</text></view>
+    <view class="slider-row">
+      <text class="slider-label">小</text>
+      <slider
+        class="slider"
+        min="12"
+        max="24"
+        step="1"
+        value="{{settings.fontSize}}"
+        activeColor="{{accentColor}}"
+        block-size="24"
+        bindchange="setFontSize"
+      />
+      <text class="slider-label">大</text>
+    </view>
+  </view>
+
+  <!-- 行距 -->
+  <view class="settings-group">
+    <view class="group-title">行距 <text class="group-value">{{settings.lineHeight.toFixed(1)}}</text></view>
+    <view class="slider-row">
+      <text class="slider-label">紧凑</text>
+      <slider
+        class="slider"
+        min="1.2"
+        max="2.4"
+        step="0.1"
+        value="{{settings.lineHeight}}"
+        activeColor="{{accentColor}}"
+        block-size="24"
+        bindchange="setLineHeight"
+      />
+      <text class="slider-label">宽松</text>
+    </view>
+  </view>
+
+  <!-- 字体 -->
+  <view class="settings-group">
+    <view class="group-title">字体</view>
+    <view class="font-options">
+      <view
+        class="font-option {{settings.fontFamily === 'system' ? 'active' : ''}}"
+        data-font="system"
+        bindtap="setFontFamily"
+      >
+        <text style="font-family: var(--font-family);">系统默认</text>
+      </view>
+      <view
+        class="font-option {{settings.fontFamily === 'serif' ? 'active' : ''}}"
+        data-font="serif"
+        bindtap="setFontFamily"
+      >
+        <text style="font-family: var(--font-serif);">衬线体</text>
+      </view>
+      <view
+        class="font-option {{settings.fontFamily === 'mono' ? 'active' : ''}}"
+        data-font="mono"
+        bindtap="setFontFamily"
+      >
+        <text style="font-family: var(--font-mono);">等宽体</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 开关项 -->
+  <view class="settings-group">
+    <view class="switch-row">
+      <view class="switch-info">
+        <text class="switch-title">网络图片</text>
+        <text class="switch-desc">允许加载外链图片（可能泄露 IP 与阅读行为）</text>
+      </view>
+      <switch checked="{{settings.networkImages}}" bindchange="setNetworkImages" color="{{accentColor}}" />
+    </view>
+    <view class="divider"></view>
+    <view class="switch-row">
+      <view class="switch-info">
+        <text class="switch-title">屏幕常亮</text>
+        <text class="switch-desc">阅读时保持屏幕不熄灭</text>
+      </view>
+      <switch checked="{{settings.keepScreenOn}}" bindchange="setKeepScreenOn" color="{{accentColor}}" />
+    </view>
+  </view>
+
+  <!-- 缓存 -->
+  <view class="settings-group">
+    <view class="action-row" bindtap="clearCache">
+      <text class="action-title">清除缓存</text>
+      <text class="action-value">{{cacheSizeText}}</text>
+      <text class="action-arrow">›</text>
+    </view>
+    <view class="storage-warn" wx:if="{{storageWarn}}">
+      <text class="storage-warn-text">存储空间即将用满，建议清除缓存</text>
+    </view>
+  </view>
+
+  <!-- 关于 -->
+  <view class="settings-group">
+    <view class="action-row" bindtap="showAbout">
+      <text class="action-title">关于</text>
+      <text class="action-value">v1.0.0</text>
+      <text class="action-arrow">›</text>
+    </view>
+  </view>
+
+  <view style="height: 60rpx;"></view>
+</view>

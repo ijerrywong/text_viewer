@@ -1,0 +1,203 @@
+/* settings.wxss - 设置页样式 */
+
+.page {
+  min-height: 100vh;
+  background-color: var(--bg-secondary);
+  padding: 24rpx 0;
+}
+
+.settings-group {
+  margin: 0 24rpx 24rpx;
+  padding: 32rpx;
+  background-color: var(--bg-primary);
+  border-radius: 20rpx;
+  box-shadow: 0 2rpx 8rpx var(--shadow);
+}
+
+.group-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.group-value {
+  font-size: 26rpx;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* 主题选择 */
+.theme-options {
+  display: flex;
+  justify-content: space-around;
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.theme-preview {
+  width: 120rpx;
+  height: 80rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4rpx solid transparent;
+  transition: border-color 0.2s;
+}
+
+.theme-option.active .theme-preview {
+  border-color: var(--accent);
+}
+
+.theme-preview-light {
+  background-color: #ffffff;
+}
+
+.theme-preview-light .theme-preview-text {
+  color: #1a1a1a;
+}
+
+.theme-preview-dark {
+  background-color: #1a1a1a;
+}
+
+.theme-preview-dark .theme-preview-text {
+  color: #e0e0e0;
+}
+
+.theme-preview-sepia {
+  background-color: #f4ecd8;
+}
+
+.theme-preview-sepia .theme-preview-text {
+  color: #5b4636;
+}
+
+.theme-preview-text {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.theme-name {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.theme-option.active .theme-name {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* 滑块 */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.slider-label {
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.slider {
+  flex: 1;
+}
+
+/* 字体选择 */
+.font-options {
+  display: flex;
+  gap: 16rpx;
+}
+
+.font-option {
+  flex: 1;
+  padding: 24rpx 16rpx;
+  text-align: center;
+  border-radius: 12rpx;
+  background-color: var(--bg-tertiary);
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.font-option.active {
+  background-color: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* 开关行 */
+.switch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 0;
+}
+
+.switch-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  margin-right: 24rpx;
+}
+
+.switch-title {
+  font-size: 30rpx;
+  color: var(--text-primary);
+}
+
+.switch-desc {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.settings-group .divider {
+  margin: 24rpx 0;
+}
+
+/* 操作行 */
+.action-row {
+  display: flex;
+  align-items: center;
+  padding: 8rpx 0;
+}
+
+.action-title {
+  flex: 1;
+  font-size: 30rpx;
+  color: var(--text-primary);
+}
+
+.action-value {
+  font-size: 26rpx;
+  color: var(--text-tertiary);
+  margin-right: 12rpx;
+}
+
+.action-arrow {
+  font-size: 32rpx;
+  color: var(--text-tertiary);
+}
+
+/* 存储告警 */
+.storage-warn {
+  padding: 16rpx 0 4rpx;
+}
+
+.storage-warn-text {
+  font-size: 24rpx;
+  color: #e6a23c;
+}

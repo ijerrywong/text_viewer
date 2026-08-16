@@ -1,0 +1,185 @@
+/**
+ * app.wxss - 全局样式与主题系统
+ *
+ * 三套主题：light / dark / sepia
+ * 通过 page 上的 CSS 变量切换，所有组件引用 var(--xxx)
+ */
+
+/* ========== 浅色主题（默认） ========== */
+page {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #ebebeb;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --accent: #576b95;
+  --accent-bg: #e8eaf0;
+  --border: #e0e0e0;
+  --code-bg: #f6f8fa;
+  --code-text: #24292e;
+  --shadow: rgba(0, 0, 0, 0.08);
+
+  /* 阅读区变量 */
+  --reader-bg: #ffffff;
+  --reader-text: #333333;
+  --reader-heading: #1a1a1a;
+  --reader-link: #576b95;
+  --reader-code-bg: #f6f8fa;
+  --reader-blockquote: #6a737d;
+  --reader-blockquote-bg: #f0f0f0;
+  --reader-hr: #d0d0d0;
+
+  /* 字体 */
+  --font-size: 16px;
+  --line-height: 1.8;
+  --font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Songti SC", "SimSun", "Noto Serif SC", serif;
+  --font-mono: "SF Mono", "Fira Code", "Menlo", "Consolas", monospace;
+
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+}
+
+/* ========== 深色主题 ==========
+ *
+ * ⚠️ 选择器是 `.theme-dark` 而不是 `page.theme-dark`。
+ * WXSS 里的 `page` 指的是页面根元素本身，但主题 class 是被 setData 到
+ * 页面里那个 `<view class="page {{themeClass}}">` 上的 —— 那是 page 的**子节点**。
+ * 写成 `page.theme-dark` 时选择器永远匹配不上，深色/护眼主题从来没生效过（D4）。
+ * 改成类选择器后，CSS 变量沿子树继承，整块内容都会跟着换色。
+ */
+.theme-dark {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #141414;
+  --bg-tertiary: #2a2a2a;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #707070;
+  --accent: #7c8db5;
+  --accent-bg: #2a3040;
+  --border: #333333;
+  --code-bg: #1e1e1e;
+  --code-text: #d4d4d4;
+  --shadow: rgba(0, 0, 0, 0.3);
+
+  --reader-bg: #1a1a1a;
+  --reader-text: #c8c8c8;
+  --reader-heading: #e0e0e0;
+  --reader-link: #7c8db5;
+  --reader-code-bg: #1e1e1e;
+  --reader-blockquote: #888888;
+  --reader-blockquote-bg: #222222;
+  --reader-hr: #333333;
+}
+
+/* ========== 护眼主题（选择器同上）========== */
+.theme-sepia {
+  --bg-primary: #f4ecd8;
+  --bg-secondary: #efe6cf;
+  --bg-tertiary: #e6dcc4;
+  --text-primary: #5b4636;
+  --text-secondary: #8a7a66;
+  --text-tertiary: #a89880;
+  --accent: #8b6914;
+  --accent-bg: #ede0c8;
+  --border: #d4c9b0;
+  --code-bg: #ebe2cc;
+  --code-text: #4a3f33;
+  --shadow: rgba(91, 70, 54, 0.1);
+
+  --reader-bg: #f4ecd8;
+  --reader-text: #5b4636;
+  --reader-heading: #3d2f24;
+  --reader-link: #8b6914;
+  --reader-code-bg: #ebe2cc;
+  --reader-blockquote: #8a7a66;
+  --reader-blockquote-bg: #e8dfca;
+  --reader-hr: #d4c9b0;
+}
+
+/* ========== 全局基础样式 ========== */
+view, text {
+  box-sizing: border-box;
+}
+
+/* 安全区域 */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 通用按钮 */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 32rpx;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  transition: opacity 0.2s;
+}
+
+.btn:active {
+  opacity: 0.7;
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+.btn-secondary {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.btn-outline {
+  border: 1rpx solid var(--border);
+  color: var(--text-primary);
+}
+
+/* 卡片 */
+.card {
+  background-color: var(--bg-primary);
+  border-radius: 20rpx;
+  padding: 32rpx;
+  box-shadow: 0 2rpx 12rpx var(--shadow);
+}
+
+/* 分割线 */
+.divider {
+  height: 1rpx;
+  background-color: var(--border);
+}
+
+/* 文本省略 */
+.ellipsis-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ellipsis-2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* 加载中 */
+.loading-dots {
+  display: flex;
+  gap: 8rpx;
+  justify-content: center;
+}
+
+.loading-dots text {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background-color: var(--text-tertiary);
+}

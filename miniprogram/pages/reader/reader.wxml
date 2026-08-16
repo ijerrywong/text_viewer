@@ -1,0 +1,422 @@
+<!--
+  reader.wxml - 阅读器核心页
+  虚拟滚动：top spacer + visible blocks + bottom spacer
+  支持：TXT + Markdown（GFM 子集）+ HTML
+-->
+
+<!-- 行内段渲染模板（段落/标题/引用/列表项/脚注共用） -->
+<template name="inline-segments">
+  <block wx:for="{{segments}}" wx:for-item="seg" wx:key="index">
+    <text wx:if="{{seg.br}}">
+</text>
+    <text wx:elif="{{seg.code}}" class="seg-code">{{seg.text}}</text>
+    <text wx:elif="{{seg.href}}" class="seg-link" bindtap="onLinkTap" data-href="{{seg.href}}">{{seg.text}}</text>
+    <text wx:elif="{{seg.image}}" class="seg-img-ph">[图{{seg.alt ? ': ' + seg.alt : ''}}]</text>
+    <text wx:elif="{{seg.footref}}" class="seg-footref">{{seg.text}}</text>
+    <text wx:else style="{{seg.bold ? 'font-weight:bold;' : ''}}{{seg.italic ? 'font-style:italic;' : ''}}{{seg.strike ? 'text-decoration:line-through;' : ''}}">{{seg.text}}</text>
+  </block>
+</template>
+
+<view class="page {{themeClass}}">
+  <!-- 自定义导航栏 -->
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+    <view class="nav-bar-content">
+      <view class="nav-back" bindtap="goBack">
+        <text class="nav-back-icon">←</text>
+      </view>
+      <text class="nav-title ellipsis-1" bindtap="toggleFileQueue">{{fileName || '阅读器'}}</text>
+      <view class="nav-action" bindtap="toggleFileQueue" wx:if="{{fileQueue.length > 1}}">
+        <text>{{activeQueueIdx + 1}}/{{fileQueue.length}}</text>
+      </view>
+      <view class="nav-actions">
+        <view class="nav-action" bindtap="switchEncoding" wx:if="{{encoding}}">
+          <text>{{encoding}}</text>
+        </view>
+        <view class="nav-action" bindtap="goSettings">
+          <text>Aa</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 导航栏占位 -->
+  <view style="height: {{navBarHeight}}px;"></view>
+
+  <!-- 阅读区 -->
+  <scroll-view
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    bindscroll="onScroll"
+    scroll-top="{{scrollTopPx}}"
+    class="reader-scroll"
+  >
+    <!-- 加载中 -->
+    <view class="loading-state" wx:if="{{loading}}">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">{{loadingText}}</text>
+    </view>
+
+    <!-- 错误 -->
+    <view class="empty-state" wx:elif="{{error}}">
+      <text class="empty-icon">⚠</text>
+      <text class="empty-text">{{error}}</text>
+      <view class="btn btn-outline" bindtap="goBack" style="margin-top: 32rpx;">返回首页</view>
+    </view>
+
+    <!-- 空内容 -->
+    <view class="empty-state" wx:elif="{{!visibleBlocks.length && !loading}}">
+      <text class="empty-icon">📖</text>
+      <text class="empty-text">暂无内容</text>
+    </view>
+
+    <!-- 文档内容 -->
+    <block wx:else>
+      <!-- 降级/截断提示：降级必须可见，不能让用户对着残缺内容以为文件坏了 -->
+      <view class="degrade-notice" wx:if="{{degradeNotice}}">
+        <text class="degrade-notice-icon">ⓘ</text>
+        <text class="degrade-notice-text">{{degradeNotice}}</text>
+      </view>
+
+      <!-- 粘贴内容默认不落盘，给一个显式保存入口 -->
+      <view class="clipboard-save" wx:if="{{canSaveClipboard}}">
+        <text class="clipboard-save-text">粘贴的内容只保留在本次会话，不会写入本地</text>
+        <text class="clipboard-save-btn" bindtap="saveClipboardToRecent">保存到最近</text>
+      </view>
+
+      <!-- 顶部留白（虚拟滚动 spacer） -->
+      <view wx:if="{{useVirtualScroll}}" style="height: {{topSpacerHeight}}rpx;"></view>
+
+      <!-- 内容块 -->
+      <view class="reader-content">
+        <block wx:for="{{visibleBlocks}}" wx:key="id">
+
+          <!-- 标题 -->
+          <view
+            wx:if="{{item.type === 'heading'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-heading block-h{{item.level}}"
+            style="{{item.style || ''}}"
+          >
+            <text user-select="{{true}}">
+              <template is="inline-segments" data="{{segments: item.segments}}" />
+            </text>
+          </view>
+
+          <!-- 段落 -->
+          <view
+            wx:elif="{{item.type === 'paragraph'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-paragraph"
+            style="{{item.style || ''}}"
+          >
+            <text user-select="{{true}}">
+              <template is="inline-segments" data="{{segments: item.segments}}" />
+            </text>
+          </view>
+
+          <!-- 列表项 -->
+          <view
+            wx:elif="{{item.type === 'listItem'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-list-item"
+            style="padding-left: {{(item.depth || 0) * 32 + 32}}rpx; {{item.style || ''}}"
+          >
+            <text class="list-marker" wx:if="{{item.task}}">{{item.checked ? '✅' : '⬜'}}</text>
+            <text class="list-marker" wx:elif="{{item.ordered}}">{{item.ordIndex}}.</text>
+            <text class="list-marker" wx:else>•</text>
+            <text user-select="{{true}}" class="list-text">
+              <template is="inline-segments" data="{{segments: item.segments}}" />
+            </text>
+          </view>
+
+          <!-- 引用 -->
+          <view
+            wx:elif="{{item.type === 'quote'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-quote"
+            style="margin-left: {{(item.depth || 1) * 16}}rpx;"
+          >
+            <text user-select="{{true}}" class="quote-text">
+              <template is="inline-segments" data="{{segments: item.segments}}" />
+            </text>
+          </view>
+
+          <!-- 代码块 -->
+          <view
+            wx:elif="{{item.type === 'code'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-code"
+            style="{{item.style || ''}}"
+          >
+            <view class="code-header">
+              <text class="code-lang">{{item.lang || 'text'}}</text>
+              <text class="code-copy-btn" bindtap="copyCode" data-text="{{item.text}}">复制</text>
+            </view>
+            <scroll-view scroll-x="{{true}}" class="code-scroll">
+              <text class="code-text" user-select="{{true}}" wx:if="{{!item.highlighted}}">{{item.text}}</text>
+              <block wx:else>
+                <text wx:for="{{item.tokens}}" wx:for-item="tok" wx:key="index" class="code-text code-tok-{{tok.type}}" user-select="{{true}}">{{tok.text}}</text>
+              </block>
+            </scroll-view>
+            <text class="code-hint" wx:if="{{item.longHint}}">可能是未闭合的代码块</text>
+          </view>
+
+          <!-- 表格 -->
+          <view
+            wx:elif="{{item.type === 'table'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-table"
+            style="{{item.style || ''}}"
+          >
+            <scroll-view scroll-x="{{true}}" class="table-scroll">
+              <view class="table-inner">
+                <view class="table-row table-header-row">
+                  <view
+                    class="table-cell table-header-cell"
+                    wx:for="{{item.header}}"
+                    wx:for-item="cell"
+                    wx:key="index"
+                    style="text-align: {{item.aligns[index] || 'left'}};"
+                  >
+                    <text user-select="{{true}}">{{cell.text}}</text>
+                  </view>
+                </view>
+                <view
+                  class="table-row"
+                  wx:for="{{item.rows}}"
+                  wx:for-item="row"
+                  wx:for-index="rowIdx"
+                  wx:key="rowIdx"
+                >
+                  <view
+                    class="table-cell"
+                    wx:for="{{row}}"
+                    wx:for-item="cell"
+                    wx:for-index="colIdx"
+                    wx:key="colIdx"
+                    style="text-align: {{item.aligns[colIdx] || 'left'}};"
+                  >
+                    <text user-select="{{true}}">{{cell.text}}</text>
+                  </view>
+                </view>
+              </view>
+            </scroll-view>
+          </view>
+
+          <!-- 图片 -->
+          <view
+            wx:elif="{{item.type === 'image'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-image"
+            style="{{item.style || ''}}"
+          >
+            <!-- 网络图片被屏蔽 -->
+            <view class="image-blocked" wx:if="{{item._networkBlocked}}">
+              <text class="image-blocked-icon">🚫</text>
+              <text class="image-blocked-text">网络图片已屏蔽</text>
+              <text class="image-blocked-hint">可在设置中开启网络图片</text>
+            </view>
+            <!-- 图片加载失败 -->
+            <view class="image-blocked" wx:elif="{{item._imgError}}">
+              <text class="image-blocked-icon">📋</text>
+              <text class="image-blocked-text">图片加载失败</text>
+              <text class="image-blocked-hint" wx:if="{{item.alt}}">{{item.alt}}</text>
+            </view>
+            <!-- 正常图片 -->
+            <block wx:else>
+              <image
+                src="{{item.src}}"
+                mode="widthFix"
+                class="content-image"
+                lazy-load="{{true}}"
+                binderror="onImageError"
+                data-index="{{item._vIndex}}"
+              />
+              <text class="image-alt" wx:if="{{item.alt}}">{{item.alt}}</text>
+            </block>
+          </view>
+
+          <!-- 脚本降级块（Chart.js/ECharts/reveal.js/Math） -->
+          <view
+            wx:elif="{{item.type === 'scriptDegrade'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-script-degrade degrade-{{item.degradeType}}"
+          >
+            <view class="degrade-card">
+              <view class="degrade-header">
+                <text class="degrade-icon" wx:if="{{item.degradeType === 'chart'}}">📊</text>
+                <text class="degrade-icon" wx:elif="{{item.degradeType === 'slide'}}">📄</text>
+                <text class="degrade-icon" wx:elif="{{item.degradeType === 'math'}}">∑</text>
+                <text class="degrade-icon" wx:else>⚠</text>
+                <text class="degrade-title">{{item.title}}</text>
+              </view>
+              <text class="degrade-message" wx:if="{{item.message}}">{{item.message}}</text>
+              <text class="degrade-hint" wx:if="{{item.hint}}">{{item.hint}}</text>
+            </view>
+          </view>
+
+          <!-- 脚注 -->
+          <view
+            wx:elif="{{item.type === 'footnote'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-footnote"
+          >
+            <text class="footnote-marker">[{{item.label}}]</text>
+            <text user-select="{{true}}" class="footnote-text">
+              <template is="inline-segments" data="{{segments: item.segments}}" />
+            </text>
+          </view>
+
+          <!-- HTML 块（降级纯文本） -->
+          <view
+            wx:elif="{{item.type === 'html'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-html"
+          >
+            <text class="html-hint">HTML 片段（以纯文本显示）</text>
+            <text user-select="{{true}}" class="html-text">{{item.text}}</text>
+          </view>
+
+          <!-- 分割线 -->
+          <view
+            wx:elif="{{item.type === 'hr'}}"
+            id="block-{{item._vIndex}}"
+            class="block block-hr"
+          ></view>
+
+          <!-- 其他类型（兜底） -->
+          <view
+            wx:else
+            id="block-{{item._vIndex}}"
+            class="block block-paragraph"
+          >
+            <text user-select="{{true}}">{{item.text || ''}}</text>
+          </view>
+        </block>
+      </view>
+
+      <!-- 底部留白（虚拟滚动 spacer） -->
+      <view wx:if="{{useVirtualScroll}}" style="height: {{bottomSpacerHeight}}rpx;"></view>
+
+      <!-- 底部填充（非虚拟滚动时） -->
+      <view wx:if="{{!useVirtualScroll}}" style="height: 200rpx;"></view>
+    </block>
+  </scroll-view>
+
+  <!-- 进度条 -->
+  <view class="progress-bar-wrap" wx:if="{{!loading && visibleBlocks.length > 0}}">
+    <view class="progress-bar">
+      <view class="progress-fill" style="width: {{progressPercent}}%;"></view>
+    </view>
+    <text class="progress-text">{{progressText}}</text>
+  </view>
+
+  <!-- 底部工具栏 -->
+  <view class="toolbar" wx:if="{{!loading}}">
+    <view class="tool-item" bindtap="toggleToc">
+      <text class="tool-icon">☰</text>
+      <text class="tool-label">目录</text>
+    </view>
+    <view class="tool-item" bindtap="toggleSearch">
+      <text class="tool-icon">🔍</text>
+      <text class="tool-label">搜索</text>
+    </view>
+    <view class="tool-item" bindtap="goSettings">
+      <text class="tool-icon">Aa</text>
+      <text class="tool-label">设置</text>
+    </view>
+    <view class="tool-item" bindtap="saveProgress">
+      <text class="tool-icon">💾</text>
+      <text class="tool-label">进度</text>
+    </view>
+  </view>
+
+  <!-- 目录抽屉 -->
+  <view class="toc-mask" wx:if="{{showToc}}" bindtap="closeToc"></view>
+  <view class="toc-panel {{showToc ? 'toc-panel-open' : ''}}">
+    <view class="toc-header">
+      <text class="toc-title">目录</text>
+      <text class="toc-close" bindtap="closeToc">✕</text>
+    </view>
+    <scroll-view scroll-y class="toc-list">
+      <view class="toc-empty" wx:if="{{!toc.length}}">
+        <text>暂无目录</text>
+      </view>
+      <view
+        class="toc-item toc-level-{{item.level}} {{currentTocId === item.id ? 'toc-item-active' : ''}}"
+        wx:for="{{toc}}"
+        wx:key="id"
+        data-index="{{item.blockIndex}}"
+        data-id="{{item.id}}"
+        bindtap="jumpToHeading"
+      >
+        <text>{{item.text}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 搜索栏 -->
+  <view class="search-bar" wx:if="{{showSearch}}">
+    <view class="search-input-wrap">
+      <text class="search-icon">🔍</text>
+      <input
+        class="search-input"
+        placeholder="搜索内容..."
+        value="{{searchKeyword}}"
+        bindinput="onSearchInput"
+        confirm-type="search"
+        bindconfirm="doSearch"
+      />
+      <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</text>
+    </view>
+    <text class="search-cancel" bindtap="closeSearch">取消</text>
+  </view>
+
+  <!-- 搜索结果面板 -->
+  <view class="search-results-panel" wx:if="{{showSearch && searchResults.length > 0}}">
+    <view class="search-results-header">
+      <text class="search-results-count">{{searchResults.length}} 个结果{{searchTruncated ? '（已达上限，请缩小关键词）' : ''}}</text>
+      <view class="search-nav">
+        <text class="search-nav-btn" bindtap="prevSearchResult">↑</text>
+        <text class="search-nav-btn" bindtap="nextSearchResult">↓</text>
+      </view>
+    </view>
+    <scroll-view scroll-y class="search-results-list">
+      <view
+        class="search-result-item {{index === currentSearchIdx ? 'search-result-active' : ''}}"
+        wx:for="{{searchResults}}"
+        wx:key="index"
+        data-index="{{item.blockIndex}}"
+        data-result-idx="{{index}}"
+        bindtap="jumpToSearchResult"
+      >
+        <text class="search-result-snippet">{{item.snippet}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 文件队列面板 -->
+  <view class="file-queue-mask" wx:if="{{showFileQueue}}" bindtap="closeFileQueue"></view>
+  <view class="file-queue-panel {{showFileQueue ? 'file-queue-panel-open' : ''}}">
+    <view class="file-queue-header">
+      <text class="file-queue-title">打开的文件</text>
+      <text class="file-queue-close" bindtap="closeFileQueue">✕</text>
+    </view>
+    <scroll-view scroll-y class="file-queue-list">
+      <view
+        class="file-queue-item {{index === activeQueueIdx ? 'file-queue-item-active' : ''}}"
+        wx:for="{{fileQueue}}"
+        wx:key="index"
+        data-index="{{index}}"
+        bindtap="switchToFile"
+      >
+        <view class="file-queue-item-info">
+          <text class="file-queue-item-name ellipsis-1">{{item.name || '未命名'}}</text>
+          <text class="file-queue-item-meta">{{item.format || 'txt'}} · {{item.encoding || 'UTF-8'}}</text>
+        </view>
+        <text class="file-queue-item-close" catchtap="closeFileInQueue" data-index="{{index}}">✕</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>

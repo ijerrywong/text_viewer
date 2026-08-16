@@ -1,0 +1,46 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/reader/reader",
+    "pages/settings/settings"
+  ],
+  "subPackages": [
+    {
+      "root": "subpackages/pkg-markdown",
+      "name": "pkg-markdown",
+      "pages": ["pages/md-render/md-render"]
+    },
+    {
+      "root": "subpackages/pkg-html",
+      "name": "pkg-html",
+      "pages": ["pages/html-render/html-render"]
+    }
+  ],
+  "window": {
+    "navigationBarTitleText": "纯文本阅读器",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f5f5",
+    "backgroundTextStyle": "dark",
+    "enablePullDownRefresh": false
+  },
+  "workers": "workers",
+  "__usePrivacyCheck__": true,
+  "supportedMaterials": [
+    {
+      "materialType": "text/html",
+      "name": "用${nickname}打开",
+      "desc": "渲染HTML文档，支持Tailwind样式",
+      "path": "pages/index/index"
+    },
+    {
+      "materialType": "text/plain",
+      "name": "用${nickname}阅读",
+      "desc": "自动识别GBK等中文编码",
+      "path": "pages/index/index"
+    }
+  ],
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json",
+  "style": "v2"
+}

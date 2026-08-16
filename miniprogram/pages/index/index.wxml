@@ -1,0 +1,122 @@
+<!--
+  index.wxml - 首页
+  三大入口：选文件 / 粘贴文本 / 查看示例
+  最近文件列表
+-->
+<view class="page {{themeClass}}">
+  <!-- 自定义导航栏 -->
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+    <view class="nav-bar-content">
+      <text class="nav-title">纯文本阅读器</text>
+      <view class="nav-settings" bindtap="goSettings">
+        <text class="nav-settings-icon">⚙</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 占位（导航栏高度） -->
+  <view style="height: {{navBarHeight}}px;"></view>
+
+  <!-- 主体内容 -->
+  <scroll-view scroll-y class="content" enhanced show-scrollbar="{{false}}">
+
+    <!-- Hero 区 -->
+    <view class="hero">
+      <view class="hero-badge">
+        <text class="hero-badge-text">本地解析 · 零上传 · 隐私安全</text>
+      </view>
+      <text class="hero-title">在微信里阅读</text>
+      <text class="hero-title">任何纯文本</text>
+      <text class="hero-desc">支持 Markdown / HTML / TXT</text>
+      <text class="hero-desc">GBK 编码自动识别 · 大文件流畅滚动</text>
+    </view>
+
+    <!-- 三大入口 -->
+    <view class="entries">
+      <!-- 从聊天选文件 -->
+      <view class="entry-card entry-primary" bindtap="chooseFile">
+        <view class="entry-icon-wrap">
+          <text class="entry-icon">💬</text>
+        </view>
+        <view class="entry-body">
+          <text class="entry-title">从聊天选择文件</text>
+          <text class="entry-desc">从当前会话选取文件打开</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
+
+      <!-- 粘贴文本 -->
+      <view class="entry-card" bindtap="pasteText">
+        <view class="entry-icon-wrap">
+          <text class="entry-icon">📋</text>
+        </view>
+        <view class="entry-body">
+          <text class="entry-title">粘贴文本</text>
+          <text class="entry-desc">从剪贴板粘贴 Markdown / 纯文本</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
+
+      <!-- 查看示例 -->
+      <view class="entry-card" bindtap="viewSamples">
+        <view class="entry-icon-wrap">
+          <text class="entry-icon">📖</text>
+        </view>
+        <view class="entry-body">
+          <text class="entry-title">查看示例</text>
+          <text class="entry-desc">体验 Markdown / HTML / TXT 渲染效果</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 最近文件 -->
+    <view class="section" wx:if="{{recentFiles.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">最近文件</text>
+        <text class="section-action" bindtap="clearRecent">清空</text>
+      </view>
+      <view class="recent-list">
+        <view
+          class="recent-item"
+          wx:for="{{recentFiles}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="openRecent"
+        >
+          <view class="recent-info">
+            <text class="recent-name ellipsis-1">{{item.name}}</text>
+            <text class="recent-meta">{{item.sizeText}} · {{item.timeText}}</text>
+          </view>
+          <view class="recent-format">{{item.format}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 引导提示 -->
+    <view class="tip-card" wx:if="{{showTip}}">
+      <text class="tip-text">
+        提示：在聊天里长按文件 →「打开方式」→ 选择本小程序，可直接打开文件。
+        若未看到入口，请先「从聊天选择文件」。
+      </text>
+      <text class="tip-close" bindtap="closeTip">✕</text>
+    </view>
+
+    <view style="height: 60rpx;"></view>
+  </scroll-view>
+
+  <!-- 隐私授权弹窗 -->
+  <view class="privacy-mask" wx:if="{{showPrivacy}}">
+    <view class="privacy-dialog">
+      <text class="privacy-title">隐私保护说明</text>
+      <text class="privacy-desc">
+        本小程序所有文件均在你的手机本地解析渲染，全程不上传任何服务器，无云端存储。
+        选择文件和读取剪贴板需要你的授权。
+      </text>
+      <view class="privacy-actions">
+        <view class="btn btn-outline" bindtap="denyPrivacy">拒绝</view>
+        <view class="btn btn-primary" bindtap="grantPrivacy">同意并继续</view>
+      </view>
+    </view>
+  </view>
+</view>

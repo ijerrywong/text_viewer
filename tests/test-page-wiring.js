@@ -183,6 +183,36 @@ pages.forEach(function (p) {
   }
 });
 
+// ─── 转发 / 分享 ───
+
+console.log('\n转发 / 分享');
+
+/**
+ * 官方文档原文：「只有定义了此事件处理函数，右上角菜单才会显示"转发"按钮」
+ * （onShareAppMessage / onShareTimeline 同理）。
+ * 没定义的页面，用户点转发只会得到「当前页面不可转发」。
+ * 新增页面时极容易漏，所以逐页检查。
+ */
+pages.forEach(function (p) {
+  var js = read(path.join(ROOT, p + '.js')) || '';
+  var name = p.split('/').pop();
+  ok(name + '：定义了 onShareAppMessage（否则不可转发）',
+    /onShareAppMessage\s*[:(]/.test(js));
+  ok(name + '：定义了 onShareTimeline（否则不可分享到朋友圈）',
+    /onShareTimeline\s*[:(]/.test(js));
+});
+
+// 分享出去的必须是小程序卡片，不能夹带本机文件信息
+// （AGENTS §6.5：不做文件转发，只分享小程序卡片；带文件会被当成网盘类而拒审。
+//  而且本地文件对接收方根本打不开，文件名本身还可能是隐私。）
+var appJs = read(path.join(ROOT, 'app.js')) || '';
+var shareBlock = /shareCard\s*\(\)\s*\{([\s\S]*?)\n  \}/.exec(appJs);
+ok('分享卡片的 path 固定指向首页', !!shareBlock &&
+  /path:\s*'\/pages\/index\/index'/.test(shareBlock[1]),
+  shareBlock ? shareBlock[1].replace(/\s+/g, ' ').trim() : '未找到 shareCard');
+ok('分享内容不夹带文件标识', !!shareBlock &&
+  !/fileId|localPath|fileName|filePath/.test(shareBlock[1]));
+
 // ─── 自定义组件 ───
 
 console.log('\n自定义组件');

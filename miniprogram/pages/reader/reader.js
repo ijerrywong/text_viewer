@@ -149,8 +149,22 @@ Page({
     // 加载内容
     this.loadContent(source, options.file);
 
+    // 开启转发/朋友圈菜单
+    app.enableShareMenu();
+
     // 注册到多文件队列
     this.registerInQueue(source, name, options.file, fileId);
+  },
+
+  // ─── 转发 / 分享（Edge E3）───
+  // 只分享小程序卡片，不带任何文件信息，理由见 app.js 的 shareCard 注释
+
+  onShareAppMessage: function() {
+    return app.shareCard();
+  },
+
+  onShareTimeline: function() {
+    return app.shareToTimeline();
   },
 
   onShow: function() {

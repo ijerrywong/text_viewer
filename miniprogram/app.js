@@ -171,6 +171,49 @@ App({
     });
   },
 
+  // ─── 转发 / 分享 ───
+  //
+  // 官方文档：只有定义了 onShareAppMessage，右上角菜单才会出现「转发」按钮；
+  // 「分享到朋友圈」还需要 onShareTimeline + wx.showShareMenu 里带上 shareTimeline。
+  // 三个页面此前一个都没实现，所以点转发只会提示「当前页面不可转发」。
+  //
+  // ⚠️ 只分享小程序卡片，绝不带文件信息（AGENTS §6.5 / Edge E3）：
+  //   - path 固定指向首页：文件只存在于用户本机，带上 fileId 对方也打不开；
+  //   - title 不含文件名：文件名本身可能就是隐私（"离职协议.md"），
+  //     不该跟着分享卡片进到别人的聊天记录和朋友圈里；
+  //   - 不分享文件内容：带文件的分享会让小程序被当成网盘类而拒审。
+  // 对方点开卡片后自己选文件，这正是规范里写的语义。
+
+  SHARE_TITLE: '纯文本阅读器 — 在微信里读 Markdown / HTML / TXT',
+
+  shareCard() {
+    return {
+      title: this.SHARE_TITLE,
+      path: '/pages/index/index'
+    };
+  },
+
+  shareToTimeline() {
+    // query 留空：不携带任何本机文件的标识
+    return {
+      title: this.SHARE_TITLE,
+      query: ''
+    };
+  },
+
+  /**
+   * 开启分享菜单
+   * 「分享到朋友圈」必须显式加进 menus 才会出现，且展示朋友圈时
+   * 必须同时展示「发送给朋友」。需基础库 2.11+（本项目最低 2.32.3）。
+   */
+  enableShareMenu() {
+    if (!wx.showShareMenu) return;
+    wx.showShareMenu({
+      menus: ['shareAppMessage', 'shareTimeline'],
+      fail: function() {}
+    });
+  },
+
   /**
    * 基础库版本兼容性检查
    */

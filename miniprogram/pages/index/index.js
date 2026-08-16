@@ -33,6 +33,20 @@ Page({
 
     // 应用主题
     this.applyTheme();
+
+    // 开启转发/朋友圈菜单
+    app.enableShareMenu();
+  },
+
+  // ─── 转发 / 分享（Edge E3）───
+  // 只分享小程序卡片，不带任何文件信息，理由见 app.js 的 shareCard 注释
+
+  onShareAppMessage() {
+    return app.shareCard();
+  },
+
+  onShareTimeline() {
+    return app.shareToTimeline();
   },
 
   onShow() {

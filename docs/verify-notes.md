@@ -452,3 +452,50 @@ mp.weixin.qq.com → 设置 → 服务内容声明 → 用户隐私保护指引�
 **已加静态检查**：`usingComponents` 路径必须指向真实存在的组件三件套、
 组件 json 必须声明 `component: true`、组件自身 WXML 绑的处理函数必须存在。
 （路径写错会直接白屏，又是一类"真机才暴露"的问题。注入回归验证过会失败。）
+
+---
+
+## 17. 转发 / 分享（2026-08-16 真机反馈 + 官方文档核对）
+
+**现象**：点击右上角菜单提示「当前页面不可转发」「当前页面不可分享」。
+
+**核对结论**（官方文档原文）：
+
+- `onShareAppMessage`：「**只有定义了此事件处理函数，右上角菜单才会显示"转发"按钮**」
+  - 返回字段：`title`（默认小程序名）、`path`（须以 `/` 开头，默认当前页）、
+    `imageUrl`（5:4，支持本地/代码包/网络路径）、`promise`（需 3 秒内 resolve，基础库 2.12.0）
+- `onShareTimeline`：「只有定义了此事件处理函数，右上角菜单才会显示"分享到朋友圈"按钮」
+  - 返回字段：`title`、`query`、`imageUrl`（1:1）；**基础库 2.11.3**
+- `wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })`：
+  朋友圈按钮必须显式加进 `menus` 才出现，**基础库 2.11+**；
+  且展示「分享到朋友圈」时必须同时展示「发送给朋友」
+
+**原因**：三个页面一个都没实现这两个回调，也没调 `showShareMenu`。
+
+- 出处：https://developers.weixin.qq.com/miniprogram/dev/reference/api/Page.html
+- 出处：https://developers.weixin.qq.com/community/develop/article/doc/000a4c1cf187b8ef14aa68f0d5b813
+- 核对日期：2026-08-16
+
+### 实现时的硬约束（AGENTS §6.5 / Edge E3）
+
+规范要求「不做文件转发，**只分享小程序卡片**（对方点开自己选文件）」。据此：
+
+| 约束 | 理由 |
+|---|---|
+| `path` 固定 `/pages/index/index` | 文件只存在于用户本机，带 fileId 对方也打不开 |
+| `title` 不含文件名 | 文件名本身可能就是隐私（如"离职协议.md"），不该随卡片进到别人的聊天记录和朋友圈 |
+| `query` 留空 | 同上，不携带任何本机文件标识 |
+| 不分享文件内容 | 带文件的分享会让小程序被当作网盘类而拒审 |
+
+### 已加静态检查
+
+`tests/test-page-wiring.js`：
+- `app.json` 里每个页面都必须定义 `onShareAppMessage` 与 `onShareTimeline`
+  （新增页面时极易漏，漏了就是「当前页面不可转发」）
+- `shareCard()` 的 path 必须固定指向首页，且不得出现
+  `fileId` / `localPath` / `fileName` / `filePath`
+
+两条都注入回归验证过会失败。测试 441 → 449。
+
+> 注：`docs/提审说明.md` 原先勾着「无分享/转发功能」，那是描述**未实现时**的状态，
+> 与 AGENTS §6.5「只分享小程序卡片」其实不一致。已改为准确表述。

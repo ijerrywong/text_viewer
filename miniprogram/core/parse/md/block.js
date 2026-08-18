@@ -414,14 +414,17 @@ function getListIndent(line) {
 
 function parseList(lines, start, genId, blocks, toc, opts) {
   var i = start;
-  var ordered = false;
-  var ordIndex = 0;
-  // 判断有序/无序
   var firstMatch = /^(\s*)([-*+]|\d{1,9}[.)])\s+/.exec(lines[start]);
-  if (firstMatch && /\d/.test(firstMatch[2])) {
-    ordered = true;
-    ordIndex = parseInt(firstMatch[2], 10);
-  }
+
+  // 有序 / 无序必须**逐项**判定，并且每层各记一个计数器。
+  //
+  // 以前是拿第一项的标记给整段列表定性，两种混排都会出错：
+  //   - 外层「- 」里嵌「1. 2.」→ 子项被当无序，源文的序号在屏幕上直接消失
+  //   - 外层「3. 4.」里嵌「- 」→ 子项被画成「5.」，还两项同号
+  // 序号照 CommonMark 的做法：认作者写的起始号，之后顺序递增
+  // （「1. 1. 1.」渲染成 1. 2. 3.），而不是原样照抄每一项写的数字。
+  var counters = [];   // 每层当前序号
+  var kinds = [];      // 每层上一项是 'ol' 还是 'ul'
 
   // 层级由实际出现过的缩进量决定，而不是 indent/2。
   // 写死除以 2 时，用 4 空格缩进的文档（同样合法且常见）
@@ -483,11 +486,21 @@ function parseList(lines, start, genId, blocks, toc, opts) {
       content = taskM[2];
     }
 
-    // 有序列表序号
-    if (ordered && depth === 0) {
-      var numMatch = /\d{1,9}/.exec(m[2]);
-      if (numMatch) ordIndex = parseInt(numMatch[0], 10);
+    var ordered = /\d/.test(m[2]);
+    var ordIndex = 0;
+    // 回到浅层时，更深层的计数器作废（下一段子列表要重新起头）
+    counters.length = depth + 1;
+    kinds.length = depth + 1;
+    if (ordered) {
+      if (kinds[depth] !== 'ol' || counters[depth] == null) {
+        var numMatch = /\d{1,9}/.exec(m[2]);
+        counters[depth] = numMatch ? parseInt(numMatch[0], 10) : 1;
+      } else {
+        counters[depth] = counters[depth] + 1;
+      }
+      ordIndex = counters[depth];
     }
+    kinds[depth] = ordered ? 'ol' : 'ul';
 
     var itemId = genId();
     var itemChildren = parseInline(content, opts);
@@ -497,7 +510,6 @@ function parseList(lines, start, genId, blocks, toc, opts) {
       children: itemChildren, text: inlineToPlainText(itemChildren), id: itemId
     });
 
-    if (ordered && depth === 0) ordIndex++;
     i++;
   }
   return i;

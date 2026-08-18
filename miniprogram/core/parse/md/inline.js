@@ -5,6 +5,7 @@
  *
  * 输出 Inline 树：
  *   { t:'text', text }
+ *   | { t:'raw', text }        原样文本：不参与强调配对，也不做实体解码（数学公式）
  *   | { t:'strong', c:[Inline] }
  *   | { t:'em', c:[Inline] }
  *   | { t:'del', c:[Inline] }
@@ -47,7 +48,7 @@ function inlineToPlainText(nodes) {
   var out = '';
   for (var i = 0; i < nodes.length; i++) {
     var n = nodes[i];
-    if (n.t === 'text' || n.t === 'code') out += n.text;
+    if (n.t === 'text' || n.t === 'code' || n.t === 'raw') out += n.text;
     else if (n.t === 'strong' || n.t === 'em' || n.t === 'del') out += inlineToPlainText(n.c);
     else if (n.t === 'link') out += inlineToPlainText(n.c);
     else if (n.t === 'image') out += (n.alt || '');
@@ -110,6 +111,62 @@ function extractCodeSpans(text) {
   }
   if (buf) out.push({ t: 'text', text: buf });
   return out;
+}
+
+// ─── 数学公式保护（$…$ / $$…$$）───
+//
+// 我们不渲染公式，原样显示就行 —— 但「原样」必须是真的原样。
+// 不圈出来的话 `$x_1 + x_2$` 会被强调规则啃掉一对下划线变成 $x1 + x2$，
+// `\sum_{i=1}^{n}` 里的 `_{` 同理。丢的是字符，不是样式，触了「零丢失」的线。
+//
+// 判据保守，宁可漏认不可错认（错认只是少了一次保护，漏认不会改变任何输出）：
+//   - 内容非空、不含 $、不以空白开头或结尾（挡掉「$5 到 $10」这类货币写法）
+//   - 行内式不跨行，长度设上限，避免把半篇文档误圈成一个公式
+
+var MAX_INLINE_MATH = 200;
+var MAX_BLOCK_MATH = 2000;
+
+function extractMath(text) {
+  if (text.indexOf('$') < 0) return null;
+  var out = [];
+  var buf = '';
+  var i = 0;
+  while (i < text.length) {
+    if (text[i] === '$') {
+      var isBlock = text[i + 1] === '$';
+      var open = isBlock ? 2 : 1;
+      var limit = isBlock ? MAX_BLOCK_MATH : MAX_INLINE_MATH;
+      var close = findMathClose(text, i + open, isBlock, limit);
+      if (close > 0) {
+        if (buf) { out.push({ t: 'text', text: buf }); buf = ''; }
+        out.push({ t: 'raw', text: text.slice(i, close + open) });
+        i = close + open;
+        continue;
+      }
+    }
+    buf += text[i];
+    i++;
+  }
+  if (buf) out.push({ t: 'text', text: buf });
+  return out;
+}
+
+function findMathClose(text, from, isBlock, limit) {
+  if (from >= text.length) return -1;
+  // 行内式两端不许贴空白（挡掉「$5 到 $10」这类货币写法）；
+  // 块级式本来就常写成 $$ 独占一行，这条不适用
+  if (!isBlock && /\s/.test(text[from])) return -1;
+  var end = Math.min(text.length, from + limit);
+  for (var j = from; j < end; j++) {
+    var ch = text[j];
+    if (ch === '\n' && !isBlock) return -1;        // 行内式不跨行
+    if (ch !== '$') continue;
+    if (isBlock && text[j + 1] !== '$') continue;  // 块级式要成对的 $$
+    if (j === from) return -1;                     // 空内容
+    if (!isBlock && /\s/.test(text[j - 1])) return -1;
+    return j;
+  }
+  return -1;
 }
 
 function extractFootrefs(text) {
@@ -318,110 +375,179 @@ function parseUrlTitle(inner) {
 }
 
 // ─── 强调：*, _, ~~ ───
-// 简化 CommonMark：收集连续的同种标记 run，按从左到右配对。
-// 开标记：不被空白/标点跟随；关标记：不被空白/标点前导。
+//
+// 按 CommonMark 的 delimiter run + flanking 规则配对。
+//
+// 以前这里只判断「标记两侧是不是空白」，代价是 Markdown 方言里最贵的一类错误：
+//   some_var_name  →  some<em>var</em>name   连下划线字符本身一起没了
+//   $x_1 + x_2$    →  $x1 + x2$              公式下标被吃掉
+// 丢的是字符不是样式，直接违反「降级可以，内容零丢失」。
+//
+// flanking 规则的要点是：一个标记 run 能不能开、能不能关，
+// 由它**两侧字符的类别**（空白 / 标点 / 其他）共同决定。
+// 词内的 `_` 两侧都是普通字符，于是既不能开也不能关 ——
+// 这正是 CommonMark 用来保护 snake_case 的机制。
+
+var ASCII_PUNCT = /[!-\/:-@\[-`{-~]/;
+// 中日韩标点与全角符号：中文正文里「**重点**，」这类写法极常见，
+// 不把 CJK 标点算作标点，flanking 判定会和中文排版的直觉对不上。
+var CJK_PUNCT = /[ -⁯⸀-⹿　-〿︐-﹯＀-･]/;
+
+function isSpaceChar(ch) { return ch === undefined || /\s/.test(ch); }
+
+function isPunctChar(ch) {
+  return ch !== undefined && (ASCII_PUNCT.test(ch) || CJK_PUNCT.test(ch));
+}
+
+/** 扫出所有分隔符 run，并判定每个 run 能开 / 能关 */
+function scanDelimRuns(text) {
+  var runs = [];
+  var i = 0;
+  while (i < text.length) {
+    var ch = text[i];
+    if (ch !== '*' && ch !== '_' && ch !== '~') { i++; continue; }
+    var len = 1;
+    while (text[i + len] === ch) len++;
+
+    var before = text[i - 1];
+    var after = text[i + len];
+    // 左贴合：右边不是空白，且（右边不是标点，或左边是空白/标点）
+    var leftFlank = !isSpaceChar(after) &&
+      (!isPunctChar(after) || isSpaceChar(before) || isPunctChar(before));
+    var rightFlank = !isSpaceChar(before) &&
+      (!isPunctChar(before) || isSpaceChar(after) || isPunctChar(after));
+
+    var canOpen, canClose;
+    if (ch === '_') {
+      // 下划线比星号严：词内的 `_` 两侧都贴合，所以既不能开也不能关
+      canOpen = leftFlank && (!rightFlank || isPunctChar(before));
+      canClose = rightFlank && (!leftFlank || isPunctChar(after));
+    } else if (ch === '~') {
+      // GFM 删除线只认 ~~：单个 ~ 是 ~/path、~约等于，当标记会误伤
+      canOpen = len === 2 && leftFlank;
+      canClose = len === 2 && rightFlank;
+    } else {
+      canOpen = leftFlank;
+      canClose = rightFlank;
+    }
+
+    runs.push({
+      ch: ch, start: i, len: len, origLen: len,
+      canOpen: canOpen, canClose: canClose
+    });
+    i += len;
+  }
+  return runs;
+}
+
+/**
+ * 配对：从左往右找闭标记，再往回找最近的可用开标记。
+ * 两侧各消耗 1 或 2 个字符（都 ≥2 时按 strong），剩下的留着继续配 ——
+ * `***x***` 就是这样先配出内层 strong、再配出外层 em 的。
+ */
+function matchDelims(runs) {
+  var pairs = [];
+  // 「找过没有」的记忆（CommonMark 的 openers_bottom）。
+  // 少了它，「a* a* a* …」这种全是闭标记又配不上的文本会退化成 O(n²)：
+  // 每个闭标记都要把前面所有 run 重扫一遍。实测 16000 个 run 要 147ms，
+  // 10MB 文档里一段就能把解析卡住 —— 这类输入正是 §2.4 要防的解析炸弹。
+  var bottoms = {};
+  var ci = 0;
+  while (ci < runs.length) {
+    var closer = runs[ci];
+    if (!closer.canClose || closer.len === 0) { ci++; continue; }
+
+    var key = closer.ch + (closer.origLen % 3) + (closer.canOpen ? 'o' : '');
+    var floor = bottoms[key] == null ? -1 : bottoms[key];
+    var openerIdx = -1;
+    for (var k = ci - 1; k > floor; k--) {
+      var cand = runs[k];
+      if (cand.ch !== closer.ch || !cand.canOpen || cand.len === 0) continue;
+      // CommonMark 的「3 的倍数」规则：run 既能开又能关时，
+      // 长度和被 3 整除的这一对要跳过，否则 **a*b* 之类会配错位
+      if ((closer.canOpen || cand.canClose) &&
+          (cand.origLen + closer.origLen) % 3 === 0 &&
+          !(cand.origLen % 3 === 0 && closer.origLen % 3 === 0)) continue;
+      openerIdx = k;
+      break;
+    }
+    if (openerIdx < 0) {
+      bottoms[key] = ci - 1;   // 同类闭标记下次不必再往前翻
+      ci++;
+      continue;
+    }
+
+    var opener = runs[openerIdx];
+    // 配上了：夹在中间的分隔符作废，否则后面的闭标记会跨进
+    // 已经闭合的区间里配对，切出互相交叉的范围
+    for (var d = openerIdx + 1; d < ci; d++) runs[d].len = 0;
+    var use = closer.ch === '~' ? 2
+      : (opener.len >= 2 && closer.len >= 2 ? 2 : 1);
+
+    pairs.push({
+      type: closer.ch === '~' ? 'del' : (use === 2 ? 'strong' : 'em'),
+      openAt: opener.start + opener.len - use,  // 开标记消耗右端
+      closeAt: closer.start,                    // 闭标记消耗左端
+      use: use
+    });
+
+    opener.len -= use;
+    closer.len -= use;
+    closer.start += use;
+    if (closer.len === 0) ci++;
+  }
+  return pairs;
+}
+
+/** 按配对结果切树：只有标记字符被吃掉，其余字符一个不少地落进某个节点 */
+function buildEmphasisTree(text, pairs) {
+  if (pairs.length === 0) return [{ t: 'text', text: text }];
+
+  var events = [];
+  for (var p = 0; p < pairs.length; p++) {
+    events.push({ pos: pairs[p].openAt, end: pairs[p].openAt + pairs[p].use, open: true, type: pairs[p].type });
+    events.push({ pos: pairs[p].closeAt, end: pairs[p].closeAt + pairs[p].use, open: false, type: pairs[p].type });
+  }
+  events.sort(function (a, b) {
+    if (a.pos !== b.pos) return a.pos - b.pos;
+    return a.open === b.open ? 0 : (a.open ? 1 : -1); // 同一位置先闭后开
+  });
+
+  var root = { c: [] };
+  var stack = [root];
+  var cursor = 0;
+  for (var e = 0; e < events.length; e++) {
+    var ev = events[e];
+    var top = stack[stack.length - 1];
+    if (ev.pos > cursor) top.c.push({ t: 'text', text: text.slice(cursor, ev.pos) });
+    cursor = Math.max(cursor, ev.end);
+    if (ev.open) {
+      var node = { t: ev.type, c: [] };
+      top.c.push(node);
+      stack.push(node);
+    } else if (stack.length > 1) {
+      stack.pop();
+    }
+  }
+  if (cursor < text.length) stack[stack.length - 1].c.push({ t: 'text', text: text.slice(cursor) });
+  return root.c;
+}
 
 function extractEmphasis(nodes) {
   var out = [];
   for (var i = 0; i < nodes.length; i++) {
     var n = nodes[i];
-    if (n.t === 'text') {
-      out.push.apply(out, parseEmphasis(n.text));
-    } else {
-      out.push(n);
-    }
+    if (n.t === 'text') out.push.apply(out, parseEmphasis(n.text));
+    else out.push(n);
   }
   return out;
 }
 
 function parseEmphasis(text) {
   if (!text) return [{ t: 'text', text: '' }];
-  var out = [{ t: 'text', text: text }];
-  var changed = true;
-  var passes = 0;
-  while (changed && passes < 5) {
-    changed = false;
-    passes++;
-    var next = [];
-    for (var i = 0; i < out.length; i++) {
-      var node = out[i];
-      if (node.t === 'text') {
-        var res = tryOneEmphasis(out, i);
-        if (res) {
-          // 直接展开 parts 到 next，剩余文本在下一轮继续匹配
-          next.push.apply(next, res.parts);
-          changed = true;
-          continue;
-        }
-      }
-      next.push(node);
-    }
-    out = next;
-  }
-  return out;
-}
-
-/**
- * 在 out[i] 这个 text 节点上尝试匹配一次强调
- * 支持: ~~del~~ / **strong** / *em* / __strong__ / _em_
- */
-function tryOneEmphasis(out, i) {
-  var text = out[i].text;
-  // 优先级：~~ > __ > ** > _ > *
-  var markers = ['~~', '__', '**', '_', '*'];
-  for (var m = 0; m < markers.length; m++) {
-    var mk = markers[m];
-    var idx = text.indexOf(mk);
-    if (idx < 0) continue;
-    // 检查开标记合法性：后面非空白
-    var afterOpen = text[idx + mk.length];
-    if (afterOpen === ' ' || afterOpen === '\t' || afterOpen === '\n' || afterOpen === undefined) continue;
-    // 找闭合（从开标记后搜索，允许更长 run）
-    var searchFrom = idx + mk.length;
-    while (searchFrom < text.length) {
-      var closeIdx = findCloseMarker(text, mk, searchFrom, idx);
-      if (closeIdx < 0) break;
-      // 检查闭标记合法性：前面非空白
-      var beforeClose = text[closeIdx - 1];
-      if (beforeClose === ' ' || beforeClose === '\t' || beforeClose === '\n') {
-        searchFrom = closeIdx + mk.length;
-        continue;
-      }
-      // 找到了
-      var inner = text.slice(idx + mk.length, closeIdx);
-      var type;
-      if (mk === '~~') type = 'del';
-      else if (mk === '**' || mk === '__') type = 'strong';
-      else type = 'em';
-      var parts = [];
-      if (idx > 0) parts.push({ t: 'text', text: text.slice(0, idx) });
-      // inner 递归解析行内（只递归强调，其他已处理）
-      var innerNodes = [{ t: 'text', text: inner }];
-      innerNodes = extractEmphasis(innerNodes);
-      parts.push({ t: type, c: innerNodes });
-      if (closeIdx + mk.length < text.length) parts.push({ t: 'text', text: text.slice(closeIdx + mk.length) });
-      return { parts: parts };
-    }
-  }
-  return null;
-}
-
-function findCloseMarker(text, mk, from, openIdx) {
-  var idx = text.indexOf(mk, from);
-  // 不能是更长 run 的一部分（如 ** 匹配 **** 中的中间）
-  while (idx >= 0) {
-    // 确保不是 4 个连续 * 中的重叠
-    var before = text[idx - 1];
-    var after = text[idx + mk.length];
-    if (mk === '*' || mk === '_') {
-      if (before === mk[0] || after === mk[0]) {
-        idx = text.indexOf(mk, idx + mk.length);
-        continue;
-      }
-    }
-    return idx;
-  }
-  return -1;
+  var runs = scanDelimRuns(text);
+  if (runs.length === 0) return [{ t: 'text', text: text }];
+  return buildEmphasisTree(text, matchDelims(runs));
 }
 
 function finalizeText(nodes) {
@@ -468,6 +594,8 @@ function parseInline(text, opts) {
   var nodes = [{ t: 'text', text: text }];
   nodes = mapTextNodes(nodes, extractEscapes);
   nodes = mapTextNodes(nodes, extractCodeSpans);
+  // 公式紧跟在代码段之后：`$x$` 里的 $ 属于代码，不该被当成公式定界符
+  nodes = mapTextNodes(nodes, extractMath);
   nodes = mapTextNodes(nodes, extractFootrefs);
   nodes = mapTextNodes(nodes, extractAutolinks);
   nodes = extractImagesAndLinks(nodes, refs);
@@ -493,6 +621,14 @@ function flattenInline(nodes, styles) {
   for (var i = 0; i < nodes.length; i++) {
     var n = nodes[i];
     if (n.t === 'text') {
+      if (n.text) {
+        segments.push({
+          text: n.text, bold: !!styles.bold, italic: !!styles.italic,
+          strike: !!styles.strike, code: false, href: styles.href || ''
+        });
+      }
+    } else if (n.t === 'raw') {
+      // 公式等原样文本：继承外层样式，但内部一个字符都不动
       if (n.text) {
         segments.push({
           text: n.text, bold: !!styles.bold, italic: !!styles.italic,

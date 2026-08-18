@@ -21,6 +21,100 @@ var samples = require('../../assets/samples.js');
 var VIRTUAL_SCROLL_THRESHOLD = 150;
 // 文件队列里最多缓存几份已解析文档（D20：多文档累积会撑爆内存）
 var QUEUE_CACHE_LIMIT = 3;
+// 单段文本里最多切出多少个高亮片段：
+// 一段话里出现几十次关键词时再拆下去，setData 的段数比正文本身还多。
+var MAX_HL_PER_SEG = 50;
+
+/**
+ * 把一段行内段按关键词切成「命中/未命中」两类小段，命中的挂上高亮 class。
+ *
+ * 只拆纯文本类的段，图片占位和换行原样保留；
+ * 拆出来的小段完整继承原段的 bold/italic/href 等属性，
+ * 否则加粗的命中词会在高亮后变回常规字重。
+ *
+ * @param {Array} segments
+ * @param {string} lowerKw - 已转小写的关键词
+ * @param {boolean} isCur - 是否为「当前命中块」，决定用哪套高亮色
+ * @returns {Array} 未命中时原样返回入参，避免无谓的 setData 数据膨胀
+ */
+function highlightSegments(segments, lowerKw, isCur) {
+  if (!segments || !lowerKw) return segments;
+  var hlClass = isCur ? 'seg-hl seg-hl-cur' : 'seg-hl';
+  var kwLen = lowerKw.length;
+  var out = [];
+  var touched = false;
+
+  for (var i = 0; i < segments.length; i++) {
+    var seg = segments[i];
+    if (!seg.text || seg.br || seg.image) { out.push(seg); continue; }
+
+    var lower = seg.text.toLowerCase();
+    var from = 0;
+    var count = 0;
+    var pieces = null;
+    var pos = lower.indexOf(lowerKw);
+
+    while (pos >= 0 && count < MAX_HL_PER_SEG) {
+      if (!pieces) pieces = [];
+      if (pos > from) pieces.push(cloneSeg(seg, seg.text.slice(from, pos), ''));
+      pieces.push(cloneSeg(seg, seg.text.slice(pos, pos + kwLen), hlClass));
+      from = pos + kwLen;
+      count++;
+      pos = lower.indexOf(lowerKw, from);
+    }
+
+    if (!pieces) { out.push(seg); continue; }
+    if (from < seg.text.length) pieces.push(cloneSeg(seg, seg.text.slice(from), ''));
+    touched = true;
+    out.push.apply(out, pieces);
+  }
+
+  return touched ? out : segments;
+}
+
+function cloneSeg(seg, text, hlClass) {
+  var copy = {};
+  for (var k in seg) copy[k] = seg[k];
+  copy.text = text;
+  copy.hl = hlClass;
+  return copy;
+}
+
+/**
+ * 纯文本切段：命中返回小段数组，没命中返回 null（调用方据此走「原样渲染」分支）。
+ *
+ * 表格单元格、没做语法高亮的代码块都不是行内段结构，
+ * 只有单独走这条路，它们里面的关键词才有颜色 —— 否则整块只剩一条边色，
+ * 一屏几十行代码里还是得靠人眼扫。
+ */
+function highlightPlain(text, lowerKw, isCur) {
+  if (!text || !lowerKw) return null;
+  if (text.toLowerCase().indexOf(lowerKw) < 0) return null;
+  return highlightSegments([{ text: text }], lowerKw, isCur);
+}
+
+/** 表格单元格逐个切段；没命中的单元格原样复用，不做多余的对象复制 */
+function highlightCells(cells, lowerKw, isCur) {
+  if (!cells) return cells;
+  var out = [];
+  var touched = false;
+  for (var i = 0; i < cells.length; i++) {
+    var cell = cells[i];
+    var segs = cell ? highlightPlain(cell.text, lowerKw, isCur) : null;
+    if (!segs) { out.push(cell); continue; }
+    var copy = {};
+    for (var k in cell) copy[k] = cell[k];
+    copy.hlSegs = segs;
+    out.push(copy);
+    touched = true;
+  }
+  return touched ? out : cells;
+}
+
+/** 结果条摘要也按同样规则切段，列表里一眼看得见命中在哪 */
+function snippetToSegs(snippet, lowerKw) {
+  return highlightSegments([{ text: snippet }], lowerKw, false);
+}
 
 Page({
   data: {
@@ -58,10 +152,24 @@ Page({
     currentTocId: '',
 
     // 搜索
-    showSearch: false,
+    // 两态：'off' 关闭 / 'input' 居中浮层打字 / 'result' 底部窄条看正文。
+    // 顶部长条的老实现被 navigationStyle:custom 的两个雷区夹死了 ——
+    // top:0 让搜索框埋进状态栏，右上角胶囊又压住上下跳转按钮。
+    searchPhase: 'off',
     searchKeyword: '',
     searchResults: [],
     currentSearchIdx: -1,
+    // 输入框聚焦由状态字段控制，不绑 searchPhase：
+    // 按下「搜索」后要留在浮层看结果，键盘必须先让开。
+    searchFocus: false,
+    // 已确认（按过「搜索」）的关键词。与 searchKeyword 分开存：
+    // 后者边打字边变，正文高亮不能跟着抖。
+    searchActiveKeyword: '',
+    // 结果列表要滚到哪一条（scroll-into-view 的 id，'' = 不干预）
+    resultScrollId: '',
+    // 键盘高度（px）。自己接管而不用 adjust-position，
+    // 否则页面被系统上推，居中浮层会漂到 iOS/Android 各不相同的位置。
+    keyboardHeight: 0,
 
     // 多文件队列
     showFileQueue: false,
@@ -104,6 +212,8 @@ Page({
   _pendingScrollTopRpx: 0,
   _settingsUnsubscribe: null,
   _destroyed: false,
+  _hlKeyword: '',         // 正文高亮用的小写关键词（'' = 不高亮）
+  _hitBlockSet: null,     // { blockIndex: true }，命中块整体着色用
 
   // ─── 生命周期 ───
 
@@ -630,6 +740,9 @@ Page({
   _finalizeRender: function(result, format, encoding) {
     var self = this;
 
+    // 块数组整个换掉了，旧搜索的命中下标全部作废
+    this.resetSearchState();
+
     // 行内树展平为渲染段（避免 WXML 递归模板）
     for (var i = 0; i < this._blocks.length; i++) {
       var b = this._blocks[i];
@@ -663,7 +776,7 @@ Page({
       degradeNotice: this.summarizeDegraded(result.degraded),
       useVirtualScroll: useVS,
       contentHeight: totalH,
-      visibleBlocks: useVS ? [] : this._blocks,
+      visibleBlocks: useVS ? [] : this.decorateSearch(this._blocks),
       topSpacerHeight: 0,
       bottomSpacerHeight: useVS ? totalH : 0
     });
@@ -802,7 +915,7 @@ Page({
     var renderData = renderMod.getRenderData(this._blocks, range);
 
     this.setData({
-      visibleBlocks: renderData.visibleBlocks,
+      visibleBlocks: this.decorateSearch(renderData.visibleBlocks),
       topSpacerHeight: renderData.topSpacer,
       bottomSpacerHeight: renderData.bottomSpacer
     });
@@ -1051,21 +1164,109 @@ Page({
 
   // ─── 搜索（Phase 2） ───
 
+  /**
+   * 底部工具栏「搜索」：off/result → input，input → 整体关闭
+   *
+   * 从 result 回 input 时保留 searchKeyword 与 searchResults，
+   * 用户改个字继续搜，不用从头打。
+   */
   toggleSearch: function() {
-    this.setData({ showSearch: !this.data.showSearch });
+    if (this.data.searchPhase === 'input') {
+      // 浮层开着时再点一次 = 收工：连同正文高亮一起撤掉，
+      // 只切 phase 会留下一屏没人管的黄底。
+      this.closeSearch();
+      return;
+    }
+    this.setData({ searchPhase: 'input', searchFocus: true });
+  },
+
+  /** 结果态窄条上点关键词 → 回到输入态改词 */
+  backToSearchInput: function() {
+    this.setData({
+      searchPhase: 'input',
+      searchFocus: true,
+      // 列表重新展开时把当前那条滚进视野：几十条结果里不该让人再找一遍
+      resultScrollId: this.data.currentSearchIdx >= 0
+        ? 'res-' + this.data.currentSearchIdx : ''
+    });
   },
 
   closeSearch: function() {
-    this.setData({ showSearch: false, searchKeyword: '' });
+    this.resetSearchState();
+    this.refreshSearchHighlight();
+  },
+
+  /**
+   * 清空全部搜索状态。
+   *
+   * 换文档、重解析都必须调它：_hitBlockSet 存的是块下标，
+   * 换了文档还留着，等于拿旧文档的命中位置去给新文档涂色。
+   */
+  resetSearchState: function() {
+    this._hlKeyword = '';
+    this._hitBlockSet = null;
+    this.setData({
+      searchPhase: 'off',
+      searchKeyword: '',
+      searchActiveKeyword: '',
+      searchResults: [],
+      currentSearchIdx: -1,
+      searchTruncated: false,
+      searchFocus: false,
+      resultScrollId: '',
+      keyboardHeight: 0
+    });
   },
 
   onSearchInput: function(e) {
     this.setData({ searchKeyword: e.detail.value });
   },
 
+  /**
+   * 输入框里的「✕」= 从头再来：连上一轮的结果和正文高亮一起撤掉。
+   * 只清输入框会留下一份对不上号的旧结果列表 —— 词已经没了，列表还在。
+   */
   clearSearch: function() {
-    this.setData({ searchKeyword: '' });
+    this._hlKeyword = '';
+    this._hitBlockSet = null;
+    this.setData({
+      searchKeyword: '',
+      searchActiveKeyword: '',
+      searchResults: [],
+      currentSearchIdx: -1,
+      searchTruncated: false,
+      resultScrollId: '',
+      searchFocus: true
+    });
+    this.refreshSearchHighlight();
   },
+
+  /**
+   * 输入框真实的聚焦状态要回写到 searchFocus。
+   *
+   * 收键盘靠的是 focus 属性从 true 变 false 这个「变化」：
+   * 用户手点输入框聚焦时框架不会替我们改 searchFocus，
+   * 不回写的话它一直是 false，按下「搜索」时那次 setData 就不构成变化，
+   * 没有 wx.hideKeyboard 的低版本基础库上键盘会一直杵在结果列表前面。
+   */
+  onSearchFocus: function() {
+    if (!this.data.searchFocus) this.setData({ searchFocus: true });
+  },
+
+  onSearchBlur: function() {
+    if (this.data.searchFocus) this.setData({ searchFocus: false });
+  },
+
+  /**
+   * 键盘升降 → 压缩遮罩的可用高度，浮层在剩余空间里居中，自然被顶到键盘上方。
+   * 比手算 top 稳：不用关心机型状态栏、也不用关心键盘带不带候选词栏。
+   */
+  onKeyboardHeightChange: function(e) {
+    this.setData({ keyboardHeight: (e.detail && e.detail.height) || 0 });
+  },
+
+  /** 浮层卡片内部吞掉点击，避免冒泡到遮罩把搜索关掉 */
+  noopTap: function() {},
 
   // ─── 链接处理（F1：外链不跳转，确认后复制）───
 
@@ -1139,15 +1340,33 @@ Page({
 
   // ─── 搜索 ───
 
+  /**
+   * 按下键盘上的「搜索」：只出结果，不跳转。
+   *
+   * 以前这里搜完直接跳第一个结果、浮层顺势收成底部窄条 ——
+   * 用户刚按完确认，屏幕上什么都没看到就被丢回正文，
+   * 还得再点一次窄条才能看到那几十条结果。
+   * 现在留在浮层里：把键盘收掉腾出空间，列表铺开让用户挑；
+   * 挑中哪一条，才由 jumpToSearchResult 收起浮层去正文。
+   */
   doSearch: function() {
     var keyword = this.data.searchKeyword.trim();
     if (!keyword || this._blocks.length === 0) {
-      this.setData({ searchResults: [], currentSearchIdx: -1 });
+      this._hlKeyword = '';
+      this._hitBlockSet = null;
+      this.setData({
+        searchResults: [],
+        currentSearchIdx: -1,
+        searchActiveKeyword: '',
+        searchTruncated: false
+      });
+      this.refreshSearchHighlight();
       return;
     }
 
     var lowerKeyword = keyword.toLowerCase();
     var results = [];
+    var hitSet = {};
     // 结果数封顶：10 万块的文档里搜「的」会命中几万条，
     // 整份 results 进 setData 直接超限（D12），页面反而什么都不显示。
     var MAX_RESULTS = 200;
@@ -1191,31 +1410,118 @@ Page({
         var start = Math.max(0, pos - 20);
         var end = Math.min(text.length, pos + keyword.length + 20);
         var snippet = (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '');
-        results.push({ blockIndex: i, snippet: snippet, pos: pos });
+        results.push({
+          blockIndex: i,
+          snippetSegs: snippetToSegs(snippet, lowerKeyword),
+          pos: pos
+        });
+        hitSet[i] = true;
       }
     }
+
+    // 正文高亮的依据：确认过的关键词 + 命中块集合
+    this._hlKeyword = results.length > 0 ? lowerKeyword : '';
+    this._hitBlockSet = results.length > 0 ? hitSet : null;
 
     this.setData({
       searchResults: results,
       searchTruncated: truncatedSearch,
-      currentSearchIdx: results.length > 0 ? 0 : -1
+      searchActiveKeyword: keyword,
+      // 还没挑结果，先不认定「当前项」——正文里所有命中一视同仁地黄底
+      currentSearchIdx: -1,
+      // 新一轮结果从头看起，别停在上一轮滚到的位置
+      resultScrollId: '',
+      // 收键盘：浮层的可用高度立刻翻倍，结果列表才铺得开
+      searchFocus: false,
+      keyboardHeight: 0
     });
 
-    if (results.length > 0) {
-      // 跳转到第一个结果（保持搜索面板打开）
-      this.jumpToSearchResult({
-        currentTarget: { dataset: { index: results[0].blockIndex, resultIdx: 0 } }
-      });
-    } else {
+    // focus=false 在个别机型上不保证真的收键盘，补一刀（基础库 2.8.2+）
+    if (wx.hideKeyboard) wx.hideKeyboard({});
+
+    this.refreshSearchHighlight();
+
+    if (results.length === 0) {
       wx.showToast({ title: '未找到结果', icon: 'none' });
     }
+  },
+
+  /**
+   * 按当前搜索状态重画可见块（高亮是渲染期加工，不写回 _blocks）
+   */
+  refreshSearchHighlight: function() {
+    if (this.data.useVirtualScroll) {
+      // force：可见范围没变也要重画，否则换了关键词/当前项颜色不更新
+      this.updateVisibleRange(this._lastScrollTopRpx, true);
+    } else if (this._blocks.length > 0) {
+      this.setData({ visibleBlocks: this.decorateSearch(this._blocks) });
+    }
+  },
+
+  /**
+   * 给待渲染的块套上搜索高亮：段内关键词着色 + 整块命中标记。
+   *
+   * 返回的是新对象，绝不改 _blocks —— 非虚拟滚动时 visibleBlocks 就是
+   * _blocks 本身，就地改会把高亮永久烙进文档数据里。
+   */
+  decorateSearch: function(blocks) {
+    var kw = this._hlKeyword;
+    var hits = this._hitBlockSet;
+    if (!kw || !hits || !blocks || blocks.length === 0) return blocks;
+
+    var results = this.data.searchResults;
+    var ci = this.data.currentSearchIdx;
+    var curBlock = (ci >= 0 && ci < results.length) ? results[ci].blockIndex : -1;
+
+    var out = [];
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      // 虚拟滚动下 _vIndex 才是块在文档里的真实下标；非虚拟时下标即数组位置
+      var idx = b._vIndex == null ? i : b._vIndex;
+      if (!hits[idx]) { out.push(b); continue; }
+
+      var copy = {};
+      for (var k in b) copy[k] = b[k];
+      var isCur = idx === curBlock;
+      // 块级标记：图片块（命中的是 alt）只能靠它，其余块类型是「远看」的锚点
+      copy._hitClass = isCur ? 'block-hit block-hit-cur' : 'block-hit';
+
+      if (b.segments) {
+        copy.segments = highlightSegments(b.segments, kw, isCur);
+      } else if (b.type === 'code') {
+        // 语法高亮开着时 tokens 就是现成的段结构，直接切；
+        // 关着时只有一整坨 text，得自己切一份出来（原 text 不动，复制粘贴照旧）
+        if (b.highlighted && b.tokens) {
+          copy.tokens = highlightSegments(b.tokens, kw, isCur);
+        } else {
+          copy.codeSegs = highlightPlain(b.text, kw, isCur);
+        }
+      } else if (b.type === 'table') {
+        copy.header = highlightCells(b.header, kw, isCur);
+        if (b.rows) {
+          var rows = [];
+          for (var r = 0; r < b.rows.length; r++) {
+            rows.push(highlightCells(b.rows[r], kw, isCur));
+          }
+          copy.rows = rows;
+        }
+      }
+      out.push(copy);
+    }
+    return out;
   },
 
   jumpToSearchResult: function(e) {
     var blockIndex = e.currentTarget.dataset.index;
     var resultIdx = e.currentTarget.dataset.resultIdx;
 
-    this.setData({ currentSearchIdx: resultIdx });
+    // 选定结果 → 让出屏幕：浮层收起，只留底部窄条做上一个/下一个
+    this.setData({
+      currentSearchIdx: resultIdx,
+      searchPhase: 'result',
+      searchFocus: false,
+      keyboardHeight: 0
+    });
 
     // 跳转到该块
     var scrollTopRpx = renderMod.progressToLayoutTop(this._layout, blockIndex, 0);
@@ -1224,7 +1530,10 @@ Page({
     var scrollTopPx = scrollTopRpx / this._rpxRatio;
 
     if (this.data.useVirtualScroll) {
-      this.updateVisibleRange(scrollTopRpx);
+      // force：当前命中块要换成强调色，可见范围没变时也得重画
+      this.updateVisibleRange(scrollTopRpx, true);
+    } else {
+      this.setData({ visibleBlocks: this.decorateSearch(this._blocks) });
     }
 
     var self = this;
@@ -1336,6 +1645,8 @@ Page({
 
     // 保存当前文件状态到队列
     this.saveCurrentToQueue();
+    // 命中下标属于上一份文档，跟着切过去就成了乱涂
+    this.resetSearchState();
 
     var target = app.globalData.fileQueue[idx];
     app.globalData.activeQueueIdx = idx;

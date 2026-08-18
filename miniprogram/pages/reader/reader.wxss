@@ -336,19 +336,44 @@
 .toc-level-5 { padding-left: 128rpx; font-size: 24rpx; color: var(--text-tertiary); }
 .toc-level-6 { padding-left: 152rpx; font-size: 24rpx; color: var(--text-tertiary); }
 
-/* ─── 搜索栏 ─── */
-.search-bar {
+/* ─── 搜索 · 输入态浮层 ───
+   页面是 navigationStyle:custom，屏幕顶端归微信管：
+   状态栏压着 y=0，右上角胶囊（···／关闭）盖不掉也移不走。
+   所以搜索不上顶部，改成居中浮层。 */
+.search-mask {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
+  /* bottom 由 JS 按键盘高度下发：可用区变矮，卡片自然被顶到键盘上方 */
   display: flex;
   align-items: center;
-  padding: 16rpx 24rpx;
-  background-color: var(--bg-primary);
-  border-bottom: 1rpx solid var(--border);
-  z-index: 150;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 300;
+}
+
+/* max-height 是给结果列表用的：
+   有了确定的容器高度，下面那个 flex:1 的 scroll-view 才能被正确压缩，
+   键盘弹起时卡片也不会顶出可用区。 */
+.search-modal {
+  width: 86%;
+  max-width: 620rpx;
+  max-height: calc(100% - 48rpx);
+  display: flex;
+  flex-direction: column;
   gap: 16rpx;
+  padding: 24rpx;
+  background-color: var(--bg-primary);
+  border-radius: 20rpx;
+  box-shadow: 0 8rpx 32rpx var(--shadow);
+  overflow: hidden;
+}
+
+.search-modal-hint {
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+  text-align: center;
 }
 
 .search-input-wrap {
@@ -378,10 +403,48 @@
   color: var(--text-tertiary);
 }
 
-.search-cancel {
-  font-size: 28rpx;
-  color: var(--accent);
+/* ─── 搜索 · 结果态窄条 ───
+   贴在底部工具栏正上方（bottom 由 JS 下发 = toolbarHeight，已含底部安全区）。
+   只占一行，正文和命中高亮完全露出；拇指不用横跨屏幕去够顶端。 */
+.search-navbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  padding: 12rpx 24rpx;
+  background-color: var(--bg-primary);
+  border-top: 1rpx solid var(--border);
+  box-shadow: 0 -4rpx 16rpx var(--shadow);
+  z-index: 60;
+}
+
+.search-navbar-kw {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.search-navbar-kw-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.search-navbar-count {
+  font-size: 24rpx;
+  color: var(--text-tertiary);
   white-space: nowrap;
+}
+
+.search-navbar-close {
+  padding: 0 8rpx;
+  font-size: 30rpx;
+  color: var(--text-tertiary);
 }
 
 /* ════════════════════════════════════════════
@@ -413,6 +476,21 @@
   font-size: 0.85em;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
+}
+
+/* ─── 搜索命中高亮 ───
+   seg-hl：所有命中的词；seg-hl-cur：当前所在结果那一块里的词。
+   两级配色是必要的 —— 一屏几十个黄块时，「我现在在第几个」得靠颜色区分。
+   !important 是为了压过 .seg-code / .seg-link 自带的底色和字色。 */
+.seg-hl {
+  background-color: var(--search-hl-bg) !important;
+  color: var(--search-hl-text) !important;
+  border-radius: 4rpx;
+}
+
+.seg-hl-cur {
+  background-color: var(--search-hl-cur-bg) !important;
+  color: var(--search-hl-cur-text) !important;
 }
 
 /* ─── 列表项 ─── */
@@ -729,33 +807,24 @@
   color: var(--accent) !important;
 }
 
-/* ─── 搜索结果面板 ─── */
-.search-results-panel {
-  position: fixed;
-  top: 104rpx;
-  left: 0;
-  right: 0;
-  max-height: 50vh;
-  background-color: var(--bg-primary);
-  border-bottom: 1rpx solid var(--border);
-  z-index: 149;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4rpx 16rpx var(--shadow);
-}
-
-.search-results-header {
+/* ─── 搜索结果列表（浮层内） ─── */
+.search-results-head {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  padding: 16rpx 24rpx;
-  border-bottom: 1rpx solid var(--border);
+  gap: 16rpx;
 }
 
 .search-results-count {
   font-size: 26rpx;
   color: var(--text-secondary);
+}
+
+.search-results-tip {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .search-nav {
@@ -780,13 +849,17 @@
   background-color: var(--bg-tertiary);
 }
 
+/* 卡片有了 max-height，这里就能 flex 收缩：
+   键盘收起后列表铺满剩余空间（搜索确认后就是这个状态，结果要一次看够），
+   键盘还在时被压到 min-height，仍留得下两三条。 */
 .search-results-list {
-  flex: 1;
-  max-height: 40vh;
+  flex: 1 1 auto;
+  min-height: 160rpx;
+  max-height: 52vh;
 }
 
 .search-result-item {
-  padding: 20rpx 24rpx;
+  padding: 20rpx 8rpx;
   border-bottom: 1rpx solid var(--border);
 }
 
@@ -973,4 +1046,22 @@
 
 .clipboard-save-btn:active {
   opacity: 0.5;
+}
+
+/* ─── 搜索命中块标记 ───
+   必须放在**所有块类型样式之后**：.block-quote / .block-code / .block-html
+   都自带 background-color，同为单类选择器时后写的赢 ——
+   原先这段写在它们前面，代码块、引用块的命中标记等于没有。
+
+   标记用 inset 左色条而不是铺底色：底色是这些块的身份（代码块的灰、
+   引用块的浅底），为了标一次命中把它们涂平不划算；色条叠在任何底色上都看得见。
+   当前所在的那一块再额外铺一层暖色，和其余命中拉开距离。 */
+.block-hit {
+  border-radius: 8rpx;
+  box-shadow: inset 6rpx 0 0 0 var(--search-hl-bg);
+}
+
+.block-hit-cur {
+  background-color: var(--search-hit-bg);
+  box-shadow: inset 6rpx 0 0 0 var(--search-hl-cur-bg);
 }

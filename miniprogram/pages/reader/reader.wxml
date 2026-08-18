@@ -9,11 +9,11 @@
   <block wx:for="{{segments}}" wx:for-item="seg" wx:key="index">
     <text wx:if="{{seg.br}}">
 </text>
-    <text wx:elif="{{seg.code}}" class="seg-code">{{seg.text}}</text>
-    <text wx:elif="{{seg.href}}" class="seg-link" bindtap="onLinkTap" data-href="{{seg.href}}">{{seg.text}}</text>
+    <text wx:elif="{{seg.code}}" class="seg-code {{seg.hl}}">{{seg.text}}</text>
+    <text wx:elif="{{seg.href}}" class="seg-link {{seg.hl}}" bindtap="onLinkTap" data-href="{{seg.href}}">{{seg.text}}</text>
     <text wx:elif="{{seg.image}}" class="seg-img-ph">[图{{seg.alt ? ': ' + seg.alt : ''}}]</text>
-    <text wx:elif="{{seg.footref}}" class="seg-footref">{{seg.text}}</text>
-    <text wx:else style="{{seg.bold ? 'font-weight:bold;' : ''}}{{seg.italic ? 'font-style:italic;' : ''}}{{seg.strike ? 'text-decoration:line-through;' : ''}}">{{seg.text}}</text>
+    <text wx:elif="{{seg.footref}}" class="seg-footref {{seg.hl}}">{{seg.text}}</text>
+    <text wx:else class="{{seg.hl}}" style="{{seg.bold ? 'font-weight:bold;' : ''}}{{seg.italic ? 'font-style:italic;' : ''}}{{seg.strike ? 'text-decoration:line-through;' : ''}}">{{seg.text}}</text>
   </block>
 </template>
 
@@ -95,7 +95,7 @@
           <view
             wx:if="{{item.type === 'heading'}}"
             id="block-{{item._vIndex}}"
-            class="block block-heading block-h{{item.level}}"
+            class="block block-heading block-h{{item.level}} {{item._hitClass}}"
             style="{{item.style || ''}}"
           >
             <text user-select="{{true}}">
@@ -107,7 +107,7 @@
           <view
             wx:elif="{{item.type === 'paragraph'}}"
             id="block-{{item._vIndex}}"
-            class="block block-paragraph"
+            class="block block-paragraph {{item._hitClass}}"
             style="{{item.style || ''}}"
           >
             <text user-select="{{true}}">
@@ -119,7 +119,7 @@
           <view
             wx:elif="{{item.type === 'listItem'}}"
             id="block-{{item._vIndex}}"
-            class="block block-list-item"
+            class="block block-list-item {{item._hitClass}}"
             style="padding-left: {{(item.depth || 0) * 32 + 32}}rpx; {{item.style || ''}}"
           >
             <text class="list-marker" wx:if="{{item.task}}">{{item.checked ? '✅' : '⬜'}}</text>
@@ -134,7 +134,7 @@
           <view
             wx:elif="{{item.type === 'quote'}}"
             id="block-{{item._vIndex}}"
-            class="block block-quote"
+            class="block block-quote {{item._hitClass}}"
             style="margin-left: {{(item.depth || 1) * 16}}rpx;"
           >
             <text user-select="{{true}}" class="quote-text">
@@ -146,7 +146,7 @@
           <view
             wx:elif="{{item.type === 'code'}}"
             id="block-{{item._vIndex}}"
-            class="block block-code"
+            class="block block-code {{item._hitClass}}"
             style="{{item.style || ''}}"
           >
             <view class="code-header">
@@ -154,9 +154,13 @@
               <text class="code-copy-btn" bindtap="copyCode" data-text="{{item.text}}">复制</text>
             </view>
             <scroll-view scroll-x="{{true}}" class="code-scroll">
-              <text class="code-text" user-select="{{true}}" wx:if="{{!item.highlighted}}">{{item.text}}</text>
+              <!-- codeSegs 只有搜索命中时才存在：命中的词切出来单独着色 -->
+              <block wx:if="{{item.codeSegs}}">
+                <text wx:for="{{item.codeSegs}}" wx:for-item="seg" wx:key="index" class="code-text {{seg.hl}}" user-select="{{true}}">{{seg.text}}</text>
+              </block>
+              <text class="code-text" user-select="{{true}}" wx:elif="{{!item.highlighted}}">{{item.text}}</text>
               <block wx:else>
-                <text wx:for="{{item.tokens}}" wx:for-item="tok" wx:key="index" class="code-text code-tok-{{tok.type}}" user-select="{{true}}">{{tok.text}}</text>
+                <text wx:for="{{item.tokens}}" wx:for-item="tok" wx:key="index" class="code-text code-tok-{{tok.type}} {{tok.hl}}" user-select="{{true}}">{{tok.text}}</text>
               </block>
             </scroll-view>
             <text class="code-hint" wx:if="{{item.longHint}}">可能是未闭合的代码块</text>
@@ -166,7 +170,7 @@
           <view
             wx:elif="{{item.type === 'table'}}"
             id="block-{{item._vIndex}}"
-            class="block block-table"
+            class="block block-table {{item._hitClass}}"
             style="{{item.style || ''}}"
           >
             <scroll-view scroll-x="{{true}}" class="table-scroll">
@@ -179,7 +183,8 @@
                     wx:key="index"
                     style="text-align: {{item.aligns[index] || 'left'}};"
                   >
-                    <text user-select="{{true}}">{{cell.text}}</text>
+                    <text user-select="{{true}}" wx:if="{{!cell.hlSegs}}">{{cell.text}}</text>
+                    <text user-select="{{true}}" wx:else><text wx:for="{{cell.hlSegs}}" wx:for-item="seg" wx:key="index" class="{{seg.hl}}">{{seg.text}}</text></text>
                   </view>
                 </view>
                 <view
@@ -197,7 +202,8 @@
                     wx:key="colIdx"
                     style="text-align: {{item.aligns[colIdx] || 'left'}};"
                   >
-                    <text user-select="{{true}}">{{cell.text}}</text>
+                    <text user-select="{{true}}" wx:if="{{!cell.hlSegs}}">{{cell.text}}</text>
+                    <text user-select="{{true}}" wx:else><text wx:for="{{cell.hlSegs}}" wx:for-item="seg" wx:key="index" class="{{seg.hl}}">{{seg.text}}</text></text>
                   </view>
                 </view>
               </view>
@@ -208,7 +214,7 @@
           <view
             wx:elif="{{item.type === 'image'}}"
             id="block-{{item._vIndex}}"
-            class="block block-image"
+            class="block block-image {{item._hitClass}}"
             style="{{item.style || ''}}"
           >
             <!-- 网络图片被屏蔽 -->
@@ -260,7 +266,7 @@
           <view
             wx:elif="{{item.type === 'footnote'}}"
             id="block-{{item._vIndex}}"
-            class="block block-footnote"
+            class="block block-footnote {{item._hitClass}}"
           >
             <text class="footnote-marker">[{{item.label}}]</text>
             <text user-select="{{true}}" class="footnote-text">
@@ -272,7 +278,7 @@
           <view
             wx:elif="{{item.type === 'html'}}"
             id="block-{{item._vIndex}}"
-            class="block block-html"
+            class="block block-html {{item._hitClass}}"
           >
             <text class="html-hint">HTML 片段（以纯文本显示）</text>
             <text user-select="{{true}}" class="html-text">{{item.text}}</text>
@@ -356,44 +362,77 @@
     </scroll-view>
   </view>
 
-  <!-- 搜索栏 -->
-  <view class="search-bar" wx:if="{{showSearch}}">
-    <view class="search-input-wrap">
-      <text class="search-icon">🔍</text>
-      <input
-        class="search-input"
-        placeholder="搜索内容..."
-        value="{{searchKeyword}}"
-        bindinput="onSearchInput"
-        confirm-type="search"
-        bindconfirm="doSearch"
-      />
-      <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</text>
+  <!-- 搜索 · 输入态：居中浮层 + 半透明遮罩，避开状态栏与右上角胶囊 -->
+  <view
+    class="search-mask"
+    wx:if="{{searchPhase === 'input'}}"
+    style="bottom: {{keyboardHeight}}px;"
+    bindtap="closeSearch"
+  >
+    <view class="search-modal" catchtap="noopTap">
+      <view class="search-input-wrap">
+        <text class="search-icon">🔍</text>
+        <input
+          class="search-input"
+          placeholder="搜索内容..."
+          value="{{searchKeyword}}"
+          focus="{{searchFocus}}"
+          adjust-position="{{false}}"
+          bindinput="onSearchInput"
+          confirm-type="search"
+          bindconfirm="doSearch"
+          bindfocus="onSearchFocus"
+          bindblur="onSearchBlur"
+          bindkeyboardheightchange="onKeyboardHeightChange"
+        />
+        <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</text>
+      </view>
+
+      <view class="search-modal-hint" wx:if="{{searchResults.length === 0}}">
+        <text wx:if="{{searchActiveKeyword}}">没有匹配「{{searchActiveKeyword}}」的内容，换个词试试</text>
+        <text wx:else>输入关键词后按键盘上的「搜索」</text>
+      </view>
+
+      <block wx:if="{{searchResults.length > 0}}">
+        <view class="search-results-head">
+          <text class="search-results-count">{{searchResults.length}} 个结果{{searchTruncated ? '（已达上限，请缩小关键词）' : ''}}</text>
+          <text class="search-results-tip">点一条跳到正文</text>
+        </view>
+        <scroll-view scroll-y class="search-results-list" scroll-into-view="{{resultScrollId}}">
+          <view
+            class="search-result-item {{index === currentSearchIdx ? 'search-result-active' : ''}}"
+            wx:for="{{searchResults}}"
+            wx:key="index"
+            id="res-{{index}}"
+            data-index="{{item.blockIndex}}"
+            data-result-idx="{{index}}"
+            bindtap="jumpToSearchResult"
+          >
+            <text class="search-result-snippet">
+              <text wx:for="{{item.snippetSegs}}" wx:for-item="seg" wx:key="index" class="{{seg.hl}}">{{seg.text}}</text>
+            </text>
+          </view>
+        </scroll-view>
+      </block>
     </view>
-    <text class="search-cancel" bindtap="closeSearch">取消</text>
   </view>
 
-  <!-- 搜索结果面板 -->
-  <view class="search-results-panel" wx:if="{{showSearch && searchResults.length > 0}}">
-    <view class="search-results-header">
-      <text class="search-results-count">{{searchResults.length}} 个结果{{searchTruncated ? '（已达上限，请缩小关键词）' : ''}}</text>
-      <view class="search-nav">
-        <text class="search-nav-btn" bindtap="prevSearchResult">↑</text>
-        <text class="search-nav-btn" bindtap="nextSearchResult">↓</text>
-      </view>
+  <!-- 搜索 · 结果态：贴在工具栏上方的窄条，正文和高亮完全露出 -->
+  <view
+    class="search-navbar"
+    wx:if="{{searchPhase === 'result'}}"
+    style="bottom: {{toolbarHeight}}rpx;"
+  >
+    <view class="search-navbar-kw" bindtap="backToSearchInput">
+      <text class="search-icon">🔍</text>
+      <text class="search-navbar-kw-text ellipsis-1">{{searchActiveKeyword}}</text>
     </view>
-    <scroll-view scroll-y class="search-results-list">
-      <view
-        class="search-result-item {{index === currentSearchIdx ? 'search-result-active' : ''}}"
-        wx:for="{{searchResults}}"
-        wx:key="index"
-        data-index="{{item.blockIndex}}"
-        data-result-idx="{{index}}"
-        bindtap="jumpToSearchResult"
-      >
-        <text class="search-result-snippet">{{item.snippet}}</text>
-      </view>
-    </scroll-view>
+    <text class="search-navbar-count">{{currentSearchIdx + 1}}/{{searchResults.length}}</text>
+    <view class="search-nav">
+      <text class="search-nav-btn" bindtap="prevSearchResult">↑</text>
+      <text class="search-nav-btn" bindtap="nextSearchResult">↓</text>
+    </view>
+    <text class="search-navbar-close" bindtap="closeSearch">✕</text>
   </view>
 
   <!-- 文件队列面板 -->

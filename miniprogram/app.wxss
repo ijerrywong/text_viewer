@@ -30,6 +30,13 @@ page {
   --reader-blockquote-bg: #f0f0f0;
   --reader-hr: #d0d0d0;
 
+  /* 搜索命中高亮：普通命中一套、当前命中一套（当前项要能在满屏黄底里被一眼挑出来） */
+  --search-hl-bg: #ffe58f;
+  --search-hl-text: #1a1a1a;
+  --search-hl-cur-bg: #f5871f;
+  --search-hl-cur-text: #ffffff;
+  --search-hit-bg: rgba(245, 135, 31, 0.08);
+
   /* 字体 */
   --font-size: 16px;
   --line-height: 1.8;
@@ -74,6 +81,12 @@ page {
   --reader-blockquote: #888888;
   --reader-blockquote-bg: #222222;
   --reader-hr: #333333;
+
+  --search-hl-bg: #5c4b1f;
+  --search-hl-text: #f5e6b8;
+  --search-hl-cur-bg: #c77b21;
+  --search-hl-cur-text: #ffffff;
+  --search-hit-bg: rgba(199, 123, 33, 0.12);
 }
 
 /* ========== 护眼主题（选择器同上）========== */
@@ -99,6 +112,12 @@ page {
   --reader-blockquote: #8a7a66;
   --reader-blockquote-bg: #e8dfca;
   --reader-hr: #d4c9b0;
+
+  --search-hl-bg: #e6d08a;
+  --search-hl-text: #4a3a28;
+  --search-hl-cur-bg: #b57a1c;
+  --search-hl-cur-text: #fff8e8;
+  --search-hit-bg: rgba(181, 122, 28, 0.10);
 }
 
 /* ========== 全局基础样式 ========== */

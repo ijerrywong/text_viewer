@@ -6,6 +6,8 @@
 .vmark/
 .idea/
 .vscode/
+# Claude Code 的本地会话检查点
+.claude/
 *.swp
 # WorkBuddy 的会话记忆：内容是 AGENTS.md 与 docs/ 的复述，且会各自漂移
 # （例如 MEMORY.md 仍写着「mp-html 打底」，而 verify-notes.md §11 早已决策自研）。

@@ -101,12 +101,14 @@ function estimateHeight(block, settings) {
     }
 
     case 'table': {
+      // 单元格 white-space: nowrap，每格恒为一行，行高与列宽、屏宽都无关，
+      // 可由 reader.wxss 的 .table-cell 常量精确算出（改样式时需同步这里）：
+      // 26rpx 字号 × 1.5 行高 + 上下各 16rpx 内边距 + 1rpx 行分隔线。
       const headerCount = (block.header || []).length;
       const rowCount = (block.rows || []).length;
       const totalRows = rowCount + (headerCount > 0 ? 1 : 0);
-      // 每行预估高度：每单元格可能多行，取 1.5 倍行高
-      const cellLineRpx = pxToRpx(s.fontSize * 0.9, s.screenWidth) * 1.5;
-      return totalRows * cellLineRpx + pxToRpx(16, s.screenWidth);
+      const rowRpx = 26 * 1.5 + 32 + 1;
+      return totalRows * rowRpx + 24; // 24rpx = .block 的 margin-bottom
     }
 
     case 'image': {

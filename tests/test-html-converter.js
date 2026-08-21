@@ -318,6 +318,71 @@ console.log('\n测试 12：表格解析');
 })();
 
 // ═══════════════════════════════════════════════════
+// 测试 12b：表格列对齐（aligns）
+// ═══════════════════════════════════════════════════
+console.log('\n测试 12b：表格列对齐');
+(function() {
+  // align 属性：写在数据行上也应作用于整列
+  var html = '<table>' +
+    '<thead><tr><th>项目</th><th>数量</th><th>备注</th></tr></thead>' +
+    '<tbody><tr><td>甲</td><td align="right">1</td><td align="center">无</td></tr></tbody>' +
+    '</table>';
+  var table = findBlock(converter.convert(html).blocks, 'table');
+  assertEqual(table.aligns.length, 3, 'aligns 每列一项');
+  assertEqual(table.aligns[0], 'left', '未标注的列缺省 left');
+  assertEqual(table.aligns[1], 'right', 'align 属性 right 生效');
+  assertEqual(table.aligns[2], 'center', 'align 属性 center 生效');
+})();
+
+(function() {
+  // 内联 style 的 text-align
+  var html = '<table><tbody>' +
+    '<tr><td style="text-align: center">甲</td><td>乙</td></tr>' +
+    '</tbody></table>';
+  var table = findBlock(converter.convert(html).blocks, 'table');
+  assertEqual(table.aligns[0], 'center', '内联 text-align 生效');
+})();
+
+(function() {
+  // <style> 块里的 CSS 规则
+  var html = '<style>.num { text-align: right; }</style>' +
+    '<table>' +
+    '<thead><tr><th>名称</th><th>金额</th></tr></thead>' +
+    '<tbody><tr><td>甲</td><td class="num">100</td></tr></tbody>' +
+    '</table>';
+  var table = findBlock(converter.convert(html).blocks, 'table');
+  assertEqual(table.aligns[1], 'right', 'CSS 规则的 text-align 生效');
+})();
+
+(function() {
+  // 非法值不得流进 wxml 的 style 拼接
+  var html = '<table><tbody>' +
+    '<tr><td align="center; color: red">甲</td>' +
+    '<td style="text-align: expression(alert(1))">乙</td></tr>' +
+    '</tbody></table>';
+  var table = findBlock(converter.convert(html).blocks, 'table');
+  assertEqual(table.aligns[0], 'left', '非关键字的 align 属性被丢弃');
+  assertEqual(table.aligns[1], 'left', '非关键字的 text-align 被丢弃');
+})();
+
+(function() {
+  // 对齐取自首个数据行而非表头：表头常单独居中，不代表整列
+  var html = '<table>' +
+    '<thead><tr><th style="text-align: center">金额</th></tr></thead>' +
+    '<tbody><tr><td style="text-align: right">100</td></tr></tbody>' +
+    '</table>';
+  var table = findBlock(converter.convert(html).blocks, 'table');
+  assertEqual(table.aligns[0], 'right', '取数据行的对齐而非表头的');
+})();
+
+(function() {
+  // 只有表头行时退回用表头
+  var html = '<table><thead><tr><th align="center">仅表头</th></tr></thead></table>';
+  var table = findBlock(converter.convert(html).blocks, 'table');
+  assertEqual(table.aligns[0], 'center', '无数据行时用表头行');
+})();
+
+// ═══════════════════════════════════════════════════
 // 测试 13：代码块
 // ═══════════════════════════════════════════════════
 console.log('\n测试 13：代码块');

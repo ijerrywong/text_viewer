@@ -677,16 +677,20 @@ function parseTable(tableNode, ancestorPath, ctx) {
   var rows = [];
   var aligns = [];
 
+  // ancestorPath 已包含 tableNode 自身（调用处传的是 newAncestor）
   var rows_ = [];
-  collectTableRows(tableNode, rows_);
+  collectTableRows(tableNode, ancestorPath, rows_);
+
+  var cellNodesByRow = [];
 
   for (var i = 0; i < rows_.length; i++) {
     var row = rows_[i];
     var cells = [];
-    var isHeader = row.tag === 'th' || (row.parentTag === 'thead');
-    var cellNodes = (row.children || []).filter(function(c) {
+    var isHeader = row.parentTag === 'thead';
+    var cellNodes = (row.node.children || []).filter(function(c) {
       return c.type === 'element' && (c.tag === 'td' || c.tag === 'th');
     });
+    cellNodesByRow.push({ nodes: cellNodes, path: row.path, isHeader: isHeader });
 
     for (var c = 0; c < cellNodes.length; c++) {
       var cellText = tokenizer.getTextContent(cellNodes[c]).trim();
@@ -707,6 +711,8 @@ function parseTable(tableNode, ancestorPath, ctx) {
 
   if (header.length === 0 && rows.length === 0) return null;
 
+  aligns = collectAligns(cellNodesByRow, ctx);
+
   return {
     type: 'table',
     header: header,
@@ -715,15 +721,87 @@ function parseTable(tableNode, ancestorPath, ctx) {
   };
 }
 
-function collectTableRows(node, rows) {
+// wxml 把 aligns[i] 直接拼进 style="text-align: ..."，只放行合法关键字
+var ALIGN_KEYWORDS = { 'left': 1, 'right': 1, 'center': 1, 'justify': 1 };
+
+function normalizeAlign(value) {
+  if (!value) return '';
+  var v = String(value).trim().toLowerCase();
+  return ALIGN_KEYWORDS[v] ? v : '';
+}
+
+/**
+ * 逐列求对齐方式。aligns 是列级的（wxml 按 colIdx 取值），因此：
+ * - align 属性遍历全表（纯属性读取，零开销），某列首次命中即定下；
+ * - text-align 只算代表行——优先首个数据行，其对齐比表头更能代表整列——
+ *   因为 computeStyle 要跑一遍 CSS 选择器匹配，不能每格都来一次。
+ */
+function collectAligns(cellNodesByRow, ctx) {
+  var i, c, a;
+
+  // 与 Markdown 管线同构：稠密数组，每列一个值，缺省 'left'
+  var colCount = 0;
+  for (i = 0; i < cellNodesByRow.length; i++) {
+    if (cellNodesByRow[i].nodes.length > colCount) colCount = cellNodesByRow[i].nodes.length;
+  }
+  var aligns = [];
+  for (c = 0; c < colCount; c++) aligns.push('');
+
+  for (i = 0; i < cellNodesByRow.length; i++) {
+    var nodes = cellNodesByRow[i].nodes;
+    for (c = 0; c < nodes.length; c++) {
+      if (aligns[c]) continue;
+      a = normalizeAlign(nodes[c].attrs && nodes[c].attrs.align);
+      if (a) aligns[c] = a;
+    }
+  }
+
+  var sample = null;
+  for (i = 0; i < cellNodesByRow.length; i++) {
+    if (!cellNodesByRow[i].isHeader && cellNodesByRow[i].nodes.length > 0) {
+      sample = cellNodesByRow[i];
+      break;
+    }
+  }
+  if (!sample && cellNodesByRow.length > 0) sample = cellNodesByRow[0];
+
+  if (sample) {
+    for (c = 0; c < sample.nodes.length; c++) {
+      if (aligns[c]) continue;
+      var style = computeStyle(sample.nodes[c], ctx.cssRules, sample.path, ctx.cssVars);
+      a = normalizeAlign(style && style['text-align']);
+      if (a) aligns[c] = a;
+    }
+  }
+
+  for (c = 0; c < aligns.length; c++) {
+    if (!aligns[c]) aligns[c] = 'left';
+  }
+  return aligns;
+}
+
+/**
+ * 收集 tr 节点，并记下它的父标签（区分 thead）与祖先链（供 computeStyle 用）。
+ * pathWithNode 含 node 自身；传给 computeStyle 的 ancestorPath 不含目标节点，
+ * 所以单元格用的是它所在 tr 的 path。
+ */
+function collectTableRows(node, pathWithNode, rows) {
   if (!node || node.type !== 'element') return;
   if (node.tag === 'tr') {
-    rows.push(node);
+    var parent = pathWithNode[pathWithNode.length - 2];
+    rows.push({
+      node: node,
+      parentTag: parent ? parent.tag : '',
+      path: pathWithNode
+    });
     return;
   }
   var children = node.children || [];
   for (var i = 0; i < children.length; i++) {
-    collectTableRows(children[i], rows);
+    var child = children[i];
+    if (child && child.type === 'element') {
+      collectTableRows(child, pathWithNode.concat([child]), rows);
+    }
   }
 }
 

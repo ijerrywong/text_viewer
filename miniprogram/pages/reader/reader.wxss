@@ -615,36 +615,44 @@
   width: 100%;
 }
 
+/* 用 CSS 表格布局而非 flex：flex 的每一行都是独立容器，行与行之间没有
+   列宽协商，一格内容变宽就把该行后面的竖线整体推开，各行竖线对不齐。
+   display:table 由渲染引擎统一协商列宽，同列必然同宽。 */
 .table-inner {
-  display: inline-flex;
-  flex-direction: column;
+  display: inline-table;
+  border-collapse: collapse;
   min-width: 100%;
 }
 
 .table-row {
-  display: flex;
-  flex-direction: row;
-  border-bottom: 1rpx solid var(--border);
+  display: table-row;
 }
 
 .table-header-row {
   background-color: var(--bg-tertiary);
-  border-bottom: 2rpx solid var(--border);
 }
 
+/* nowrap：单元格恒为一行，行高可精确预估（见 core/render/index.js 的
+   table 分支），超宽的表格靠外层 scroll-view 横向滑动查看。 */
 .table-cell {
-  flex-shrink: 0;
+  display: table-cell;
   min-width: 160rpx;
   padding: 16rpx 20rpx;
   font-size: 26rpx;
+  line-height: 1.5;
   color: var(--reader-text);
   border-right: 1rpx solid var(--border);
-  word-break: break-all;
-  overflow-wrap: break-word;
+  border-bottom: 1rpx solid var(--border);
+  white-space: nowrap;
+  vertical-align: top;
 }
 
 .table-cell:last-child {
   border-right: none;
+}
+
+.table-header-row .table-cell {
+  border-bottom: 2rpx solid var(--border);
 }
 
 .table-header-cell {

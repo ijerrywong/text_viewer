@@ -1,6 +1,6 @@
 <!--
   index.wxml - 首页
-  三大入口：粘贴文本（主位，ADR-13）/ 选文件 / 查看示例
+  三大入口：从聊天选文件（主位，ADR-12）/ 粘贴文本 / 查看示例
   最近文件列表
 -->
 <view class="page {{themeClass}}">
@@ -41,19 +41,33 @@
       </view>
       <text class="hero-title">手机上收到的文档</text>
       <text class="hero-title">这里直接读</text>
-      <text class="hero-desc">复制一段 AI 回复，立刻排成好读的样子</text>
+      <text class="hero-desc">点开满屏 # 和 *？这里给你排回原样</text>
       <text class="hero-desc">Markdown / HTML / TXT · GBK 自动识别</text>
     </view>
 
     <!--
       三大入口
-      ADR-13 / AGENTS.md §1.1：剪贴板是 AI 时代最高频入口（复制一段 Markdown，
-      手机上无处渲染），零文件零权限零等待，占主位。chooseMessageFile 是保底入口，
-      永远可用但路径更长，退到第二位。
+      ADR-12（2026-08-27 修正记录）：主位归 chooseMessageFile。
+      理由是「被迫性」——收到一个微信打不开的 .md 时用户没有别的办法，这是真空；
+      而粘贴是主动动作，用户人在 AI app 里，那儿已经渲染好了，他不必复制出来。
+      粘贴入口零成本、有真实但低频的用途，因此不删，退居第二位。
+      ⚠️ 不要再依据 AGENTS.md 旧版「AI 时代最高频场景」把粘贴提回主位，该定位已作废。
     -->
     <view class="entries">
-      <!-- 粘贴文本（主位） -->
-      <view class="entry-card entry-primary" bindtap="pasteText">
+      <!-- 从聊天选文件（主位）-->
+      <view class="entry-card entry-primary" bindtap="chooseFile">
+        <view class="entry-icon-wrap">
+          <text class="entry-icon">💬</text>
+        </view>
+        <view class="entry-body">
+          <text class="entry-title">从聊天选择文件</text>
+          <text class="entry-desc">微信打不开的 md / html，选进来就能读</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
+
+      <!-- 粘贴文本（第二位）-->
+      <view class="entry-card" bindtap="pasteText">
         <view class="entry-icon-wrap">
           <text class="entry-icon">📋</text>
         </view>
@@ -66,18 +80,6 @@
             放在第三行小字，不跟上面那句 job 语言抢位置。
           -->
           <text class="entry-note">仅在你点它时读一次，不上传</text>
-        </view>
-        <text class="entry-arrow">›</text>
-      </view>
-
-      <!-- 从聊天选文件 -->
-      <view class="entry-card" bindtap="chooseFile">
-        <view class="entry-icon-wrap">
-          <text class="entry-icon">💬</text>
-        </view>
-        <view class="entry-body">
-          <text class="entry-title">从聊天选择文件</text>
-          <text class="entry-desc">从当前会话选取文件打开</text>
         </view>
         <text class="entry-arrow">›</text>
       </view>

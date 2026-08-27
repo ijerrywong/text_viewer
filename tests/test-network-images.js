@@ -183,18 +183,27 @@ ok('切回缓存的文档时按当前设置重新门控',
 ok('门控翻面时不复用缓存 layout 的实测高度',
   /netChanged[\s\S]{0,200}renderMod\.createLayout\(/.test(restoreBody));
 
-// ─── 4. 首屏文案与入口顺序（ADR-13 的另外两项）───
+// ─── 4. 首屏文案与入口顺序（ADR-13 的隐私文案下沉 + ADR-12 的入口主位）───
+//
+// ⚠️ 入口顺序的断言曾经反过来（要求 pasteText 占主位），依据是 AGENTS.md 旧版
+// 「剪贴板是 AI 时代最高频场景」。该定位在 2026-08-27 被 ADR-12 修正记录作废：
+// 收到一个微信打不开的 .md 时用户没有别的办法（被迫，真空），而粘贴是主动动作
+// —— 用户人在 AI app 里，那儿已经渲染好了，他本不必复制出来。
+// 这两条断言现在守的是「文件入口占主位」，改它之前先读 ADR-12 的修正记录。
 
-console.log('\n首屏（ADR-13）');
+console.log('\n首屏（ADR-12 / ADR-13）');
 
 var indexWxml = read(path.join(ROOT, 'pages', 'index', 'index.wxml'));
 
 var primary = /<view class="entry-card entry-primary"[^>]*bindtap="([a-zA-Z]+)"/.exec(indexWxml);
-ok('主位入口是粘贴文本', primary !== null && primary[1] === 'pasteText',
+ok('主位入口是从聊天选文件（ADR-12）', primary !== null && primary[1] === 'chooseFile',
   primary ? primary[1] : '没找到 entry-primary');
 
-ok('粘贴入口排在选文件之前',
-  indexWxml.indexOf('bindtap="pasteText"') < indexWxml.indexOf('bindtap="chooseFile"'));
+ok('选文件入口排在粘贴之前（ADR-12）',
+  indexWxml.indexOf('bindtap="chooseFile"') < indexWxml.indexOf('bindtap="pasteText"'));
+
+ok('粘贴入口保留，未被删除（ADR-12：低频但零成本，不删）',
+  indexWxml.indexOf('bindtap="pasteText"') >= 0);
 
 var heroStart = indexWxml.indexOf('<view class="hero">');
 var heroEnd = indexWxml.indexOf('class="entries"');

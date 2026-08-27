@@ -1,6 +1,6 @@
 <!--
   index.wxml - 首页
-  三大入口：选文件 / 粘贴文本 / 查看示例
+  三大入口：粘贴文本（主位，ADR-13）/ 选文件 / 查看示例
   最近文件列表
 -->
 <view class="page {{themeClass}}">
@@ -30,39 +30,54 @@
       <text class="single-page-desc">这里只能浏览当前页面。点右上角「···」→「打开小程序」即可选择文件、粘贴文本。</text>
     </view>
 
-    <!-- Hero 区 -->
+    <!--
+      Hero 区
+      ADR-13：这里是用户最初 3 秒的判断位，要回答的是「这能解决我现在的问题吗」，
+      不是「我该不该担心」。隐私文案下沉到页尾 privacy-note。
+    -->
     <view class="hero">
       <view class="hero-badge">
-        <text class="hero-badge-text">本地解析 · 零上传 · 隐私安全</text>
+        <text class="hero-badge-text">不用下载 · 不用转到电脑</text>
       </view>
-      <text class="hero-title">在微信里阅读</text>
-      <text class="hero-title">任何纯文本</text>
-      <text class="hero-desc">支持 Markdown / HTML / TXT</text>
-      <text class="hero-desc">GBK 编码自动识别 · 大文件流畅滚动</text>
+      <text class="hero-title">手机上收到的文档</text>
+      <text class="hero-title">这里直接读</text>
+      <text class="hero-desc">复制一段 AI 回复，立刻排成好读的样子</text>
+      <text class="hero-desc">Markdown / HTML / TXT · GBK 自动识别</text>
     </view>
 
-    <!-- 三大入口 -->
+    <!--
+      三大入口
+      ADR-13 / AGENTS.md §1.1：剪贴板是 AI 时代最高频入口（复制一段 Markdown，
+      手机上无处渲染），零文件零权限零等待，占主位。chooseMessageFile 是保底入口，
+      永远可用但路径更长，退到第二位。
+    -->
     <view class="entries">
+      <!-- 粘贴文本（主位） -->
+      <view class="entry-card entry-primary" bindtap="pasteText">
+        <view class="entry-icon-wrap">
+          <text class="entry-icon">📋</text>
+        </view>
+        <view class="entry-body">
+          <text class="entry-title">粘贴文本</text>
+          <text class="entry-desc">AI 回复、长文，复制过来直接读</text>
+          <!--
+            E9 / 隐私说明 §5.2：iOS 读剪贴板会弹系统级提示「XX 读取了你的剪贴板」，
+            这个挡不住。事先说清「点了才读、读了不上传」，能显著降低"被偷看"的观感。
+            放在第三行小字，不跟上面那句 job 语言抢位置。
+          -->
+          <text class="entry-note">仅在你点它时读一次，不上传</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
+
       <!-- 从聊天选文件 -->
-      <view class="entry-card entry-primary" bindtap="chooseFile">
+      <view class="entry-card" bindtap="chooseFile">
         <view class="entry-icon-wrap">
           <text class="entry-icon">💬</text>
         </view>
         <view class="entry-body">
           <text class="entry-title">从聊天选择文件</text>
           <text class="entry-desc">从当前会话选取文件打开</text>
-        </view>
-        <text class="entry-arrow">›</text>
-      </view>
-
-      <!-- 粘贴文本 -->
-      <view class="entry-card" bindtap="pasteText">
-        <view class="entry-icon-wrap">
-          <text class="entry-icon">📋</text>
-        </view>
-        <view class="entry-body">
-          <text class="entry-title">粘贴文本</text>
-          <text class="entry-desc">从剪贴板粘贴 Markdown / 纯文本</text>
         </view>
         <text class="entry-arrow">›</text>
       </view>
@@ -110,6 +125,17 @@
         若未看到入口，请先「从聊天选择文件」。
       </text>
       <text class="tip-close" bindtap="closeTip">✕</text>
+    </view>
+
+    <!--
+      隐私说明（ADR-13：从 hero badge 下沉至此）
+      技术事实没变 —— 本地解析、零 wx.request/downloadFile。
+      但网络图片默认开启后，「不联网」这种说法对用户就不再准确了：
+      <image> 会由用户设备直接向图床发起加载。这里必须写明，且给出关掉的去处。
+    -->
+    <view class="privacy-note">
+      <text class="privacy-note-text">文档在本机解析，内容不上传服务器</text>
+      <text class="privacy-note-text">文档里的网络图片由你的手机直接加载，可在设置中关闭</text>
     </view>
 
     <view style="height: 60rpx;"></view>

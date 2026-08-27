@@ -8,9 +8,41 @@ const DEFAULT_SETTINGS = {
   fontSize: 16,          // px，逻辑像素
   lineHeight: 1.8,       // 行高倍率
   fontFamily: 'system',  // system | serif | mono
-  networkImages: false,  // 网络图片默认关闭（隐私保护）
+  networkImages: true,   // 网络图片默认开启（ADR-13）
   keepScreenOn: true     // 屏幕常亮
 };
+
+// 设置迁移版本。改默认值改不到老用户身上 —— saveSettings 写的是整个 settings 对象，
+// 只要用户动过任意一项（换过主题、调过字号），旧的 networkImages:false 就被写进了本地存储，
+// 之后 Object.assign(DEFAULT_SETTINGS, saved) 里 saved 永远盖过默认值。
+// 所以「翻默认值」这件事必须配一次显式迁移才真正生效。
+const SETTINGS_MIGRATION = 1;
+
+/**
+ * 一次性设置迁移。返回迁移后的 settings（可能与入参同一对象）。
+ *
+ * 迁移 1（ADR-13）：网络图片默认值 关 → 开。
+ * 无法区分「用户主动关的」和「继承了旧默认值」—— 旧默认本就是关，主动关过的人
+ * 和从没进过设置页的人在存储里长得一模一样。ADR-13 已接受这个代价：
+ * 少数确有隐私诉求的用户需要自己再关一次，开关一直都在。
+ */
+function migrateSettings(settings) {
+  var from = settings._mv || 0;
+  if (from >= SETTINGS_MIGRATION) return settings;
+
+  if (from < 1) {
+    settings.networkImages = true;
+  }
+
+  settings._mv = SETTINGS_MIGRATION;
+  try {
+    wx.setStorageSync('settings', settings);
+  } catch (e) {
+    // 写不进去就下次启动再迁一遍，不影响本次运行
+    console.error('设置迁移写入失败', e);
+  }
+  return settings;
+}
 
 // 主题对应的导航栏颜色
 const THEME_NAV = {
@@ -469,7 +501,9 @@ App({
   loadSettings() {
     try {
       const saved = wx.getStorageSync('settings');
-      this.globalData.settings = Object.assign({}, DEFAULT_SETTINGS, saved || {});
+      this.globalData.settings = migrateSettings(
+        Object.assign({}, DEFAULT_SETTINGS, saved || {})
+      );
     } catch (e) {
       this.globalData.settings = Object.assign({}, DEFAULT_SETTINGS);
     }

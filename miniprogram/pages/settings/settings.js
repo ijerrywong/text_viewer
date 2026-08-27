@@ -13,7 +13,7 @@ Page({
       fontSize: 16,
       lineHeight: 1.8,
       fontFamily: 'system',
-      networkImages: false,
+      networkImages: true,
       keepScreenOn: true
     },
     cacheSizeText: '计算中...',

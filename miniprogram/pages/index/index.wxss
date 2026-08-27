@@ -165,6 +165,17 @@
   color: var(--text-secondary);
 }
 
+/* 入口卡片里的小字标注（剪贴板「点了才读」的事先说明） */
+.entry-note {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  margin-top: 6rpx;
+}
+
+.entry-primary .entry-note {
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .entry-arrow {
   font-size: 32rpx;
   color: var(--text-tertiary);
@@ -261,6 +272,22 @@
   color: var(--accent);
   opacity: 0.6;
   flex-shrink: 0;
+}
+
+/* 页尾隐私说明（ADR-13：从 hero badge 下沉，弱化为脚注） */
+.privacy-note {
+  padding: 8rpx 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.privacy-note-text {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1.6;
 }
 
 /* 隐私授权弹窗 */

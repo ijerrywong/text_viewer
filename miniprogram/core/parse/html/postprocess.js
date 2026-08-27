@@ -3,7 +3,7 @@
  *
  * 在 Worker 返回 IR 后、setData 前执行（主线程）：
  * 1. C10/D3/D12：base64 大图抽取落盘，替换 src 为本地路径
- * 2. F9：网络图片默认关闭，用户可设置开启
+ * 2. F9：网络图片门控（ADR-13 起默认开启，用户可在设置中关闭）
  * 3. F2：IR 大小安全检查（parse bomb 最终防线）
  *
  * 文件写入通过 writeCallback 抽象，便于测试和适配不同环境
@@ -140,6 +140,11 @@ function extractBase64Images(blocks, options) {
  * 根据用户设置门控网络图片
  * - 关闭时：将网络图片 src 替换为标记，WXML 显示占位提示
  * - 开启时：保持原 src
+ *
+ * 虽然住在 parse/html/ 下，但它对 IR 的形状没有 HTML 假设 —— Markdown 的
+ * { type:'image' } 块与展平后的行内 segments 同样适用，reader 对所有格式调用它。
+ * ADR-13 之后网络图片默认开启，这个开关是隐私用户唯一的关掉方式，
+ * 漏掉任何一种格式，开关就是假的。
  *
  * @param {Array} blocks - IR blocks 数组（原地修改）
  * @param {boolean} networkImagesEnabled - 是否允许加载网络图片

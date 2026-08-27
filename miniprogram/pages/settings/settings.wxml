@@ -111,7 +111,7 @@
     <view class="switch-row">
       <view class="switch-info">
         <text class="switch-title">网络图片</text>
-        <text class="switch-desc">允许加载外链图片（可能泄露 IP 与阅读行为）</text>
+        <text class="switch-desc">加载文档里的外链图片。会向图片服务器暴露 IP 与阅读行为，关闭后显示占位</text>
       </view>
       <switch checked="{{settings.networkImages}}" bindchange="setNetworkImages" color="{{accentColor}}" />
     </view>

@@ -197,6 +197,9 @@ Page({
 
   // ─── 内部状态（不参与 setData）───
   _blocks: [],
+  // 当前 _blocks 是按哪个网络图片开关值门控的（ADR-13：默认开启后，
+  // 用户中途改开关要能当场生效，得知道现在这份是按什么门控过的）
+  _networkImagesApplied: null,
   _layout: null,          // renderMod.createLayout()，块高前缀和索引
   _viewportRpx: 0,
   _screenWidth: 375,
@@ -455,6 +458,38 @@ Page({
       this.setData({ contentHeight: this._layout.total() });
       this.updateVisibleRange(this._lastScrollTopRpx, true);
     }
+
+    // ADR-13 起网络图片默认开启，这个开关是用户唯一的关掉方式。
+    // 从设置页返回必须当场生效：中途关掉却还在继续加载外链图，等于开关是假的。
+    var nextNetwork = !!s.networkImages;
+    if (this._blocks.length > 0 && nextNetwork !== this._networkImagesApplied) {
+      this.applyNetworkImageGate(nextNetwork);
+    }
+  },
+
+  /**
+   * 应用网络图片门控，并把「屏蔽占位 ↔ 真实图片」的高度差同步给布局。
+   * 首次渲染（skipRelayout=true，此时 layout 还没建）与设置变更走同一条路径，
+   * 避免两处逻辑各写一遍然后慢慢漂移。
+   */
+  applyNetworkImageGate: function(enabled, skipRelayout) {
+    postprocess.gateNetworkImages(this._blocks, enabled);
+    this._networkImagesApplied = enabled;
+    if (skipRelayout || !this._layout || this._blocks.length === 0) return;
+
+    if (this.data.useVirtualScroll) {
+      // 高度变了，沿用字号变更那条重估路径（进度按块索引存，免疫重估）
+      var progress = renderMod.layoutToProgress(this._layout, this._lastScrollTopRpx);
+      this._layout.reestimate(this.renderSettings());
+      this._lastScrollTopRpx = renderMod.progressToLayoutTop(
+        this._layout, progress.blockIndex, progress.ratio
+      );
+      this.setData({ contentHeight: this._layout.total() });
+      this.updateVisibleRange(this._lastScrollTopRpx, true);
+    } else {
+      // 非虚拟滚动时 visibleBlocks 是整份文档的快照，改了 _blocks 得重新投影
+      this.setData({ visibleBlocks: this.decorateSearch(this._blocks) });
+    }
   },
 
   /**
@@ -689,9 +724,9 @@ Page({
         return;
       }
 
-      // 2. 网络图片门控（F9）
-      var networkEnabled = !!(app.globalData.settings && app.globalData.settings.networkImages);
-      postprocess.gateNetworkImages(this._blocks, networkEnabled);
+      // 2. 网络图片门控（F9）移到 _finalizeRender —— 那里对所有格式生效。
+      //    原先只在这个 html 分支里做，Markdown 的图床外链根本没被门控住，
+      //    而 Markdown 引用图床恰恰是最常见的情况。
 
       // 3. base64 大图抽取（C10，异步）
       if (result.hasBase64) {
@@ -759,6 +794,13 @@ Page({
       }
     }
 
+    // 网络图片门控（F9）。必须在 createLayout 之前 —— 屏蔽占位与真实图片高度不同，
+    // 顺序反了首屏占位高度就是错的。
+    // segments 也必须已经展平（Markdown 的行内图在上面那个循环里才成形）。
+    this.applyNetworkImageGate(
+      !!(app.globalData.settings && app.globalData.settings.networkImages), true
+    );
+
     // 建立块高前缀和索引（滚动路径的全部计算都基于它）
     this._layout = renderMod.createLayout(this._blocks, this.renderSettings());
 
@@ -797,6 +839,7 @@ Page({
       var qEntry = app.globalData.fileQueue[qIdx];
       qEntry.blocks = this._blocks;
       qEntry.layout = this._layout;
+      qEntry.networkImages = this._networkImagesApplied;
       qEntry.toc = result.toc;
       qEntry.encoding = encoding;
       qEntry.format = format;
@@ -1662,8 +1705,6 @@ Page({
     if (target.blocks && target.blocks.length > 0) {
       // 恢复已缓存的解析状态
       this._blocks = target.blocks;
-      this._layout = target.layout ||
-        renderMod.createLayout(this._blocks, this.renderSettings());
 
       // 重新展平行内段（segments 是渲染数据，需要重建）
       for (var i = 0; i < this._blocks.length; i++) {
@@ -1672,6 +1713,18 @@ Page({
           b.segments = inlineMod.flattenInline(b.children);
         }
       }
+
+      // 这份缓存可能是在开关的另一侧解析的（读着读着去设置里关了网络图片，
+      // 再切回上一份文档）。按当前设置重新门控一次，gateNetworkImages 幂等。
+      // 要在建 layout 之前 —— 占位与真图高度不同。
+      var netNow = !!(app.globalData.settings && app.globalData.settings.networkImages);
+      var netChanged = target.networkImages != null && target.networkImages !== netNow;
+      this.applyNetworkImageGate(netNow, true);
+      target.networkImages = netNow;
+
+      // 门控翻过面，缓存 layout 里那些图片块的实测高度就全作废了，重新估（E1b 同理）
+      this._layout = (!netChanged && target.layout) ||
+        renderMod.createLayout(this._blocks, this.renderSettings());
 
       this.setData({
         loading: false,
@@ -1721,6 +1774,9 @@ Page({
     var entry = app.globalData.fileQueue[idx];
     entry.blocks = this._blocks;
     entry.layout = this._layout;
+    // layout 里存着图片块的实测高度，而门控会换掉图片块的高度 ——
+    // 切回来时得知道这份缓存是按哪个开关值测出来的
+    entry.networkImages = this._networkImagesApplied;
     entry.toc = this.data.toc;
     entry.encoding = this.data.encoding;
     entry.format = this.data.format;

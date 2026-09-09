@@ -51,7 +51,7 @@
   background-color: var(--bg-tertiary);
 }
 
-.nav-settings text {
+.nav-settings-icon {
   font-size: var(--text-4xl);
   color: var(--text-secondary);
 }
@@ -83,13 +83,28 @@
   letter-spacing: var(--tracking-wide);
 }
 
+/* 标题组：两行是一句话，靠行距贴合，行间不再加外边距 */
+.hero-titles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
 .hero-title {
   font-size: var(--text-6xl);
   font-weight: var(--weight-bold);
   color: var(--text-primary);
   text-align: center;
   line-height: var(--leading-tight);
-  margin-bottom: var(--space-4);
+}
+
+/* 描述组：两行是两条信息，给一格间距区分开 */
+.hero-descs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .hero-desc {
@@ -190,11 +205,13 @@
   padding: var(--space-8);
 }
 
+/* 标题到列表用 space-6，列表项之间是 space-4 —— 拉开一档，
+   分组标题才明确「统领」下面这一组，而不是和它们并列 */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 .section-title {
@@ -203,9 +220,20 @@
   color: var(--text-primary);
 }
 
+/* 「清空」是可点操作，此前用三级灰 + 无边框，和旁边的纯文字标题几乎同重，
+   看不出能点。给它一个轻量的可点形态：强调色 + 一圈描边 + 更小的字号，
+   与右侧列表项里的 .recent-format 标签共用同一套形状语言。 */
 .section-action {
-  font-size: var(--text-md);
-  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  padding: var(--space-1) var(--space-3);
+  border: var(--bw-hairline) solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.section-action:active {
+  background-color: var(--accent-bg);
+  opacity: 0.7;
 }
 
 /* 最近文件列表 */

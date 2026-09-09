@@ -9,7 +9,7 @@
     <view class="nav-bar-content">
       <text class="nav-title">纯文本阅读器</text>
       <view class="nav-settings" bindtap="goSettings">
-        <text class="nav-settings-icon">⚙</text>
+        <text class="nav-settings-icon">⚙️</text>
       </view>
     </view>
   </view>
@@ -39,10 +39,20 @@
       <view class="hero-badge">
         <text class="hero-badge-text">不用下载 · 不用转到电脑</text>
       </view>
-      <text class="hero-title">手机上收到的文档</text>
-      <text class="hero-title">这里直接读</text>
-      <text class="hero-desc">点开满屏 # 和 *？这里给你排回原样</text>
-      <text class="hero-desc">Markdown / HTML / TXT · GBK 自动识别</text>
+      <!--
+        标题两行是**一句话**，描述两行是**两条信息** —— 亲密性要求前者贴合、
+        后者分开。此前两者都是裸 text 平铺在 .hero 里，靠 .hero-title 自己的
+        margin-bottom 撑开，结果标题两行之间 16rpx（看着像两个独立标题）、
+        描述两行之间 0rpx（挤成一坨）。关系正好是反的，所以这里显式分组。
+      -->
+      <view class="hero-titles">
+        <text class="hero-title">手机上收到的文档</text>
+        <text class="hero-title">这里直接读</text>
+      </view>
+      <view class="hero-descs">
+        <text class="hero-desc">点开满屏 # 和 *？这里给你排回原样</text>
+        <text class="hero-desc">Markdown / HTML / TXT · GBK 自动识别</text>
+      </view>
     </view>
 
     <!--

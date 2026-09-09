@@ -319,9 +319,22 @@
   </view>
 
   <!-- 底部工具栏 -->
+  <!--
+    四个图标此前是 ☰ / 🔍 / Aa / 💾 —— 几何符号、emoji、拉丁字母三种体系混在
+    一排同级按钮里。除了风格不统一，还有个实际后果：.tool-icon 的
+    color 对彩色 emoji 无效，所以深色主题下 ☰ 和 Aa 会跟着变浅灰，
+    而 🔍 和 💾 保持原色 —— 四个图标两种表现。
+
+    统一到 emoji 而不是统一到单色符号，是因为微信内置 emoji 字体、
+    跨平台渲染确定；单色搜索符（⌕ 之类）字体支持不稳，可能显示成方块，
+    那个风险比「不跟随主题」更严重。四个都是 emoji 之后至少表现一致。
+
+    💾 顺带换成 🔖：软盘这个隐喻对现在的用户已经不成立，而这一项做的
+    正是「记住读到哪」—— 书签才是它。
+  -->
   <view class="toolbar" wx:if="{{!loading}}">
     <view class="tool-item" bindtap="toggleToc">
-      <text class="tool-icon">☰</text>
+      <text class="tool-icon">📑</text>
       <text class="tool-label">目录</text>
     </view>
     <view class="tool-item" bindtap="toggleSearch">
@@ -329,11 +342,11 @@
       <text class="tool-label">搜索</text>
     </view>
     <view class="tool-item" bindtap="goSettings">
-      <text class="tool-icon">Aa</text>
+      <text class="tool-icon">⚙️</text>
       <text class="tool-label">设置</text>
     </view>
     <view class="tool-item" bindtap="saveProgress">
-      <text class="tool-icon">💾</text>
+      <text class="tool-icon">🔖</text>
       <text class="tool-label">进度</text>
     </view>
   </view>

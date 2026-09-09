@@ -1,11 +1,18 @@
 <!--
   settings.wxml - 设置页
-  主题 / 字号 / 行距 / 字体 / 网络图片 / 清缓存 / 关于
+  主题 / 排版（字号·行距·字体）/ 阅读选项 / 其他
+
+  分组依据是亲密性：字号、行距、字体是同一类决定（正文怎么排），
+  此前它们各占一张卡片，与「主题」「网络图片」这些不同性质的设置并列，
+  卡片数量堆到 6 张却看不出层级。现在归成 4 组，组内用 divider 分隔子项。
+
+  每组都有 group-title —— 此前前 4 组有标题、后 2 组没有，
+  同一种卡片长出两副样子，是重复原则最直接的破口。
 -->
 <view class="page {{themeClass}}">
-  <!-- 主题 -->
+  <!-- 1. 主题 -->
   <view class="settings-group">
-    <view class="group-title">阅读主题</view>
+    <text class="group-title">阅读主题</text>
     <view class="theme-options">
       <view
         class="theme-option {{settings.theme === 'light' ? 'active' : ''}}"
@@ -40,74 +47,89 @@
     </view>
   </view>
 
-  <!-- 字号 -->
+  <!-- 2. 排版：字号 / 行距 / 字体 -->
   <view class="settings-group">
-    <view class="group-title">字号 <text class="group-value">{{settings.fontSize}}px</text></view>
-    <view class="slider-row">
-      <text class="slider-label">小</text>
-      <slider
-        class="slider"
-        min="12"
-        max="24"
-        step="1"
-        value="{{settings.fontSize}}"
-        activeColor="{{accentColor}}"
-        block-size="24"
-        bindchange="setFontSize"
-      />
-      <text class="slider-label">大</text>
+    <text class="group-title">排版</text>
+
+    <view class="field">
+      <view class="field-label">
+        <text>字号</text>
+        <text class="field-value">{{settings.fontSize}}px</text>
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">小</text>
+        <slider
+          class="slider"
+          min="12"
+          max="24"
+          step="1"
+          value="{{settings.fontSize}}"
+          activeColor="{{accentColor}}"
+          block-size="24"
+          bindchange="setFontSize"
+        />
+        <text class="slider-label">大</text>
+      </view>
+    </view>
+
+    <view class="divider"></view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>行距</text>
+        <text class="field-value">{{settings.lineHeight.toFixed(1)}}</text>
+      </view>
+      <view class="slider-row">
+        <text class="slider-label">紧凑</text>
+        <slider
+          class="slider"
+          min="1.2"
+          max="2.4"
+          step="0.1"
+          value="{{settings.lineHeight}}"
+          activeColor="{{accentColor}}"
+          block-size="24"
+          bindchange="setLineHeight"
+        />
+        <text class="slider-label">宽松</text>
+      </view>
+    </view>
+
+    <view class="divider"></view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>字体</text>
+      </view>
+      <view class="font-options">
+        <view
+          class="font-option {{settings.fontFamily === 'system' ? 'active' : ''}}"
+          data-font="system"
+          bindtap="setFontFamily"
+        >
+          <text style="font-family: var(--font-family);">系统默认</text>
+        </view>
+        <view
+          class="font-option {{settings.fontFamily === 'serif' ? 'active' : ''}}"
+          data-font="serif"
+          bindtap="setFontFamily"
+        >
+          <text style="font-family: var(--font-serif);">衬线体</text>
+        </view>
+        <view
+          class="font-option {{settings.fontFamily === 'mono' ? 'active' : ''}}"
+          data-font="mono"
+          bindtap="setFontFamily"
+        >
+          <text style="font-family: var(--font-mono);">等宽体</text>
+        </view>
+      </view>
     </view>
   </view>
 
-  <!-- 行距 -->
+  <!-- 3. 阅读选项 -->
   <view class="settings-group">
-    <view class="group-title">行距 <text class="group-value">{{settings.lineHeight.toFixed(1)}}</text></view>
-    <view class="slider-row">
-      <text class="slider-label">紧凑</text>
-      <slider
-        class="slider"
-        min="1.2"
-        max="2.4"
-        step="0.1"
-        value="{{settings.lineHeight}}"
-        activeColor="{{accentColor}}"
-        block-size="24"
-        bindchange="setLineHeight"
-      />
-      <text class="slider-label">宽松</text>
-    </view>
-  </view>
-
-  <!-- 字体 -->
-  <view class="settings-group">
-    <view class="group-title">字体</view>
-    <view class="font-options">
-      <view
-        class="font-option {{settings.fontFamily === 'system' ? 'active' : ''}}"
-        data-font="system"
-        bindtap="setFontFamily"
-      >
-        <text style="font-family: var(--font-family);">系统默认</text>
-      </view>
-      <view
-        class="font-option {{settings.fontFamily === 'serif' ? 'active' : ''}}"
-        data-font="serif"
-        bindtap="setFontFamily"
-      >
-        <text style="font-family: var(--font-serif);">衬线体</text>
-      </view>
-      <view
-        class="font-option {{settings.fontFamily === 'mono' ? 'active' : ''}}"
-        data-font="mono"
-        bindtap="setFontFamily"
-      >
-        <text style="font-family: var(--font-mono);">等宽体</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 开关项 -->
-  <view class="settings-group">
+    <text class="group-title">阅读选项</text>
     <view class="switch-row">
       <view class="switch-info">
         <text class="switch-title">网络图片</text>
@@ -125,20 +147,19 @@
     </view>
   </view>
 
-  <!-- 缓存 -->
+  <!-- 4. 其他：缓存 / 关于 -->
   <view class="settings-group">
+    <text class="group-title">其他</text>
     <view class="action-row" bindtap="clearCache">
       <text class="action-title">清除缓存</text>
       <text class="action-value">{{cacheSizeText}}</text>
       <text class="action-arrow">›</text>
     </view>
+    <!-- 告警紧贴「清除缓存」，它是那一行的附属说明，不是独立条目 -->
     <view class="storage-warn" wx:if="{{storageWarn}}">
       <text class="storage-warn-text">存储空间即将用满，建议清除缓存</text>
     </view>
-  </view>
-
-  <!-- 关于 -->
-  <view class="settings-group">
+    <view class="divider"></view>
     <view class="action-row" bindtap="showAbout">
       <text class="action-title">关于</text>
       <text class="action-value">v1.0.0</text>

@@ -249,6 +249,8 @@
   opacity: 0.6;
 }
 
+/* 四个图标都是 emoji，自带颜色 —— color 对它们不生效，写在这里只是给
+   将来可能替换成单色符号时留个落点。图标一致性的说明见 reader.wxml。 */
 .tool-icon {
   font-size: var(--text-4xl);
   color: var(--text-secondary);
@@ -935,11 +937,14 @@
   padding: var(--space-4) 0;
 }
 
+/* 内边距与 .toc-item 一致（space-5）——两个抽屉的 header 已经是同一套样式，
+   列表行此前却一个 20rpx 一个 24rpx，两个面板并排看能看出行高不齐。
+   高度差异交给内容（这里是两行，目录是一行）去产生，不靠 padding 制造。 */
 .file-queue-item {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: var(--space-6) var(--space-8);
+  padding: var(--space-5) var(--space-8);
   border-bottom: var(--bw-hairline) solid var(--border);
 }
 

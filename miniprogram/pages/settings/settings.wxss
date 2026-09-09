@@ -7,46 +7,76 @@
 .page {
   min-height: 100vh;
   background-color: var(--bg-secondary);
-  padding: var(--space-6) 0;
+  padding: var(--space-8) 0;
 }
 
+/* 左右外边距与首页内容区一致（都是 space-8）——
+ * 此前设置页是 space-6，两个页面的内容左边缘差 8rpx，
+ * 来回切换时能看出边缘在跳 */
 .settings-group {
-  margin: 0 var(--space-6) var(--space-6);
+  margin: 0 var(--space-8) var(--space-8);
   padding: var(--space-8);
   background-color: var(--bg-primary);
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-card) var(--shadow);
 }
 
+/* 分组标签。此前是 28rpx / semibold / 二级灰，与它统领的 30rpx 内容标题
+ * 只差 2rpx，看起来是同级而非上级。压到 24rpx、退到三级灰、放宽字距，
+ * 让它明确是「标签」而不是「一条内容」。 */
 .group-title {
-  font-size: var(--text-lg);
+  display: block;
+  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-wide);
   margin-bottom: var(--space-6);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
-.group-value {
+/* ─── 组内子项 ─── */
+
+.field-label {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.field-value {
   font-size: var(--text-md);
   color: var(--accent);
   font-weight: var(--weight-medium);
 }
 
-/* 主题选择 */
+/* ─── 主题选择 ─── */
+
+/* 与 .font-options 同一套布局：等宽填满。
+ * 此前这里是 space-around 而字体那组是 flex:1，两组三选一控件
+ * 长得不一样，是重复原则最容易被忽略的破口。 */
 .theme-options {
   display: flex;
-  justify-content: space-around;
+  flex-direction: row;
+  gap: var(--space-4);
 }
 
 .theme-option {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
 }
 
+/* 容器（.theme-option）等宽，色块本身保持固定尺寸并居中 ——
+ * 等宽容器负责让三列间距均匀，色块比例不受屏宽影响。
+ *
+ * ⚠️ 非选中态的描边必须是可见的 --border，不能是 transparent：
+ * 浅色主题下 .theme-preview-light 是 #ffffff，卡片底色 --bg-primary
+ * 也是 #ffffff —— 描边一透明，这个色块就整块消失，只剩「Aa」浮在空中。
+ * 选中态只把描边换成 accent，宽度不变，所以切换时不会有跳动。 */
 .theme-preview {
   width: var(--size-theme-swatch-w);
   height: var(--size-theme-swatch-h);
@@ -54,7 +84,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: var(--bw-focus) solid transparent;
+  border: var(--bw-focus) solid var(--border);
   transition: border-color var(--motion-fast);
 }
 
@@ -104,7 +134,7 @@
   font-weight: var(--weight-medium);
 }
 
-/* 滑块 */
+/* ─── 滑块 ─── */
 .slider-row {
   display: flex;
   align-items: center;
@@ -121,12 +151,14 @@
   flex: 1;
 }
 
-/* 字体选择 */
+/* ─── 字体选择 ─── */
 .font-options {
   display: flex;
   gap: var(--space-4);
 }
 
+/* 内边距保持 space-6：算下来行高约 90rpx≈45px，刚好在 44px 触控目标之上。
+   为了视觉紧凑压扁它会掉到 37px，不划算。 */
 .font-option {
   flex: 1;
   padding: var(--space-6) var(--space-4);
@@ -144,7 +176,7 @@
   font-weight: var(--weight-medium);
 }
 
-/* 开关行 */
+/* ─── 开关行 ─── */
 .switch-row {
   display: flex;
   justify-content: space-between;
@@ -175,7 +207,7 @@
   margin: var(--space-6) 0;
 }
 
-/* 操作行 */
+/* ─── 操作行 ─── */
 .action-row {
   display: flex;
   align-items: center;
@@ -199,9 +231,9 @@
   color: var(--text-tertiary);
 }
 
-/* 存储告警 */
+/* 存储告警：紧贴上方的「清除缓存」行，是它的附属说明 */
 .storage-warn {
-  padding: var(--space-4) 0 var(--space-1);
+  padding: var(--space-3) 0 0;
 }
 
 .storage-warn-text {

@@ -4,6 +4,7 @@
 
 const app = getApp();
 const design = require('../../core/tokens/design.js');
+const decoder = require('../../core/encoding/decoder.js');
 
 Page({
   data: {
@@ -20,7 +21,13 @@ Page({
       keepScreenOn: true
     },
     cacheSizeText: '计算中...',
-    storageWarn: false
+    storageWarn: false,
+    // ── 文字编码（ADR-15）──
+    encodingList: decoder.SUPPORTED_ENCODINGS,
+    encodingAvailable: false,
+    currentEncoding: '',
+    encodingFileName: '',
+    encodingEmptyHint: ''
   },
 
   onLoad() {
@@ -43,6 +50,50 @@ Page({
   onShow() {
     this.loadSettings();
     this.calculateCacheSize();
+    this.loadEncodingState();
+  },
+
+  /**
+   * 读取阅读页挂上来的编码状态（ADR-15）。
+   *
+   * 三种情况要分开说，含糊其辞的空态比没有更让人困惑：
+   *   1. 正在读一份文件      → 给出选项
+   *   2. 正在读粘贴来的文本  → 没有原始字节可重新解码，说明为什么不能换
+   *   3. 没在读任何东西      → 告诉他去打开一份文档
+   */
+  loadEncodingState() {
+    const state = app.globalData.readerEncoding;
+    if (state && state.canSwitch) {
+      this.setData({
+        encodingAvailable: true,
+        currentEncoding: state.encoding || '',
+        encodingFileName: state.fileName || ''
+      });
+      return;
+    }
+    this.setData({
+      encodingAvailable: false,
+      encodingEmptyHint: state
+        ? '粘贴进来的文本没有原始文件，无法按别的编码重新解读。'
+        : '没有正在阅读的文档。打开一份文档后，这里可以切换它的编码。'
+    });
+  },
+
+  /**
+   * 选定编码。这里只把选择放进 globalData，真正的重新解码由阅读页
+   * 在 onShow 时执行 —— 解码要用到它手上的 fileMeta 和渲染管线，
+   * 设置页没有也不该有那些东西。
+   */
+  setEncoding(e) {
+    const encoding = e.currentTarget.dataset.encoding;
+    if (!encoding || encoding === this.data.currentEncoding) return;
+    app.globalData.pendingEncoding = encoding;
+    this.setData({ currentEncoding: encoding });
+    wx.showToast({
+      title: '返回后按 ' + encoding + ' 重新解读',
+      icon: 'none',
+      duration: 2000
+    });
   },
 
   loadSettings() {

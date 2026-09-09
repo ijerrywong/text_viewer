@@ -8,6 +8,7 @@
 
 var app = getApp();
 var detect = require('../../core/detect/index.js');
+var decoder = require('../../core/encoding/decoder.js');
 var parseMod = require('../../core/parse/index.js');
 var renderMod = require('../../core/render/index.js');
 var platform = require('../../core/platform/index.js');
@@ -123,6 +124,11 @@ Page({
     // 导航
     statusBarHeight: 20,
     navBarHeight: 68,
+    // 导航栏内容区高度与右侧避让宽度，measureViewport 里按胶囊实测值下发
+    navContentHeight: 44,
+    navRightInset: 0,
+    // 解码结果疑似乱码时才为 true，用于唤出编码切换入口（ADR-15）
+    encodingSuspect: false,
     toolbarHeight: 100,
     themeClass: '',
 
@@ -285,8 +291,11 @@ Page({
     // withFallback 补齐缺字段，省得每个读取点各写一遍 || 兜底值
     var sys = platform.withFallback(app.globalData.systemInfo || platform.getSystemInfo());
     var statusBarHeight = sys.statusBarHeight;
-    // iOS 44pt / Android 48dp，两家的设计规范，算错首屏会被导航栏压住
-    var navContent = design.navContentPx(sys.platform);
+    // 导航栏高度按实测的胶囊位置算（拿不到时回落到 iOS 44pt / Android 48dp），
+    // 右侧让开胶囊占的宽度 —— 「···」「○」由微信绘制在页面之上，
+    // 位置固定、移不走，不让开右边的编码切换和 Aa 就会被压在下面点不到
+    var nav = platform.getNavLayout(sys);
+    var navContent = nav.contentHeight;
 
     this._screenWidth = sys.windowWidth;
     this._rpxRatio = design.RPX_PER_SCREEN / this._screenWidth;
@@ -298,6 +307,8 @@ Page({
     this.setData({
       statusBarHeight: statusBarHeight,
       navBarHeight: statusBarHeight + navContent,
+      navContentHeight: navContent,
+      navRightInset: nav.rightInset,
       toolbarHeight: design.CHROME_PX.toolbarHeight * this._rpxRatio +
         (sys.safeArea ? (sys.screenHeight - sys.safeArea.bottom) * this._rpxRatio : 0)
     });
@@ -369,6 +380,14 @@ Page({
   onShow: function() {
     // 从设置页返回时刷新设置
     this.applySettings();
+    // ADR-15：设置页里选的编码在这里落地。编码是**单文档**的属性，
+    // 不进持久化设置，只借 globalData 传一程，用完即清。
+    var pending = app.globalData.pendingEncoding;
+    app.globalData.pendingEncoding = null;
+    if (pending && pending !== this.data.encoding) {
+      this.reDecodeWithEncoding(pending);
+      return;
+    }
     // 转发菜单要在页面显示后再开（onLoad 时页面还没上屏，调用可能被忽略）
     app.enableShareMenu();
     // 如果已有内容，重新计算高度预估
@@ -711,6 +730,12 @@ Page({
 
   _doParseAndRender: function(text, format, encoding) {
     var self = this;
+
+    // ADR-15：编码切换不再常驻导航栏，改由这条判定按需把入口递出来。
+    // 只有看起来真的解错了才提示 —— 常驻一个「GBK / Big5」按钮，
+    // 对不懂编码的人是纯噪音，而乱码时他又确实需要一键可达。
+    var garbled = detect.looksGarbled(text);
+    this.setData({ encodingSuspect: !!garbled.garbled });
 
     // 解析
     var result;
@@ -1149,7 +1174,7 @@ Page({
     }
 
     var self = this;
-    var encodings = ['UTF-8', 'GBK', 'GB18030', 'Big5', 'UTF-16LE', 'UTF-16BE'];
+    var encodings = decoder.SUPPORTED_ENCODINGS;
     var currentIdx = encodings.indexOf(this.data.encoding);
 
     wx.showActionSheet({
@@ -1167,6 +1192,7 @@ Page({
   reDecodeWithEncoding: function(encoding) {
     var self = this;
     this.setData({ loading: true, loadingText: '正在重新解码...' });
+    this._publishEncodingState(encoding);
 
     intake.reDecode(this.data.fileMeta, encoding).then(function(result) {
       self.setData({ encoding: result.encoding });
@@ -1838,11 +1864,26 @@ Page({
     wx.showToast({ title: '进度已保存', icon: 'success' });
   },
 
+  /**
+   * 把当前文档的编码状态挂到 globalData，供设置页的「文字编码」分组展示。
+   * canSwitch 为 false 时设置页只显示说明，不给选项 —— 粘贴进来的文本
+   * 没有原始字节可供重新解码（switchEncoding 里也是这么判的）。
+   */
+  _publishEncodingState: function(encoding) {
+    app.globalData.readerEncoding = {
+      encoding: encoding || this.data.encoding,
+      canSwitch: !!(this.data.fileMeta && this.data.fileMeta.localPath),
+      fileName: this.data.fileName || ''
+    };
+  },
+
   goSettings: function() {
+    this._publishEncodingState();
     wx.navigateTo({ url: '/pages/settings/settings' });
   },
 
   goBack: function() {
+    app.globalData.readerEncoding = null;
     app.backToHome();
   },
 

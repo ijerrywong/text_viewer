@@ -7,11 +7,15 @@
  */
 
 const app = getApp();
+const platform = require('../../core/platform/index.js');
 
 Page({
   data: {
     statusBarHeight: 20,
     navBarHeight: 68,
+    // 导航栏内容区高度与右侧避让宽度，onLoad 里按胶囊实测值下发
+    navContentHeight: 44,
+    navRightInset: 0,
     themeClass: '',
     showTip: true,
     showPrivacy: false,
@@ -22,17 +26,16 @@ Page({
   },
 
   onLoad() {
-    // 获取状态栏高度用于自定义导航栏
-    const sys = app.globalData.systemInfo;
-    if (sys) {
-      const statusBarHeight = sys.statusBarHeight || 20;
-      // 导航栏高度 = 状态栏 + 内容区(44px on iOS, 48px on Android)
-      const navContent = sys.platform === 'android' ? 48 : 44;
-      this.setData({
-        statusBarHeight,
-        navBarHeight: statusBarHeight + navContent
-      });
-    }
+    // 自定义导航栏：高度按实测的胶囊位置算，右侧让开胶囊占的宽度。
+    // 右上角的「···」「○」是微信画的，位置固定，不让开就会被压在下面。
+    const sys = platform.withFallback(app.globalData.systemInfo);
+    const nav = platform.getNavLayout(sys);
+    this.setData({
+      statusBarHeight: sys.statusBarHeight,
+      navBarHeight: sys.statusBarHeight + nav.contentHeight,
+      navContentHeight: nav.contentHeight,
+      navRightInset: nav.rightInset
+    });
 
     // 应用主题
     this.applyTheme();

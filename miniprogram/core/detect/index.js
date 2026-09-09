@@ -418,7 +418,67 @@ function detectAndDecode(bytes, forcedEncoding, metaCharsetText) {
   return { text, encoding, confidence, bomLength };
 }
 
+/**
+ * 判断解码结果是否**疑似乱码** —— 编码自动识别误判时的信号。
+ *
+ * AGENTS §2.5：自动识别不可能 100% 准，兜底入口比把识别率从 95% 优化到
+ * 97% 更有价值。但常驻一个「GBK / Big5」按钮，对不懂编码的人是噪音
+ * （ADR-15）。所以改为：**只在看起来真的错了的时候**才把入口递出去。
+ *
+ * 两类乱码的特征完全不同，要分开认：
+ *
+ * 1. **编码猜得太宽**（GBK/Big5 文本按 UTF-8 解）——字节序列非法，
+ *    解码器吐出大量 U+FFFD 替换字符。数它的占比就行，最可靠。
+ *
+ * 2. **编码猜得太窄**（UTF-8 文本按 GBK 解）——字节序列**全部合法**，
+ *    解出来是一串有效但无意义的汉字，没有任何替换字符可数。
+ *    这类只能认特征串，也就是俗称的「锟斤拷」。
+ *
+ * ⚠️ 特征只匹配**组合**不匹配单字：「烫」「屏」「踝」这些在乱码里高频，
+ * 但它们本身都是常用字（烫手、屏幕），单字匹配会把正常文档误判成乱码。
+ *
+ * @param {string} text - 解码后的文本
+ * @returns {{garbled:boolean, reason?:string, detail?:number}}
+ */
+function looksGarbled(text) {
+  if (!text) return { garbled: false };
+
+  // 只看开头一段：乱码是整份文档级的现象，抽样足够，
+  // 而全文扫描在几 MB 的文档上是白花的开销
+  var sample = text.length > 20000 ? text.slice(0, 20000) : text;
+  var len = sample.length;
+  // 太短判不准，宁可不报
+  if (len < 32) return { garbled: false };
+
+  // ── 1. 替换字符占比 ──
+  var fffd = 0;
+  for (var i = 0; i < len; i++) {
+    if (sample.charCodeAt(i) === 0xFFFD) fffd++;
+  }
+  var ratio = fffd / len;
+  // 正常文档的替换字符几乎恒为 0；0.5% 已经是明显不对了
+  if (ratio > 0.005) {
+    return { garbled: true, reason: 'replacement', detail: ratio };
+  }
+
+  // ── 2. 乱码特征串 ──
+  var patterns = [
+    /锟斤拷/g,        // UTF-8 → GBK，最经典的一组
+    /鎴戜滑|浣犲ソ|鐨勬槸/g, // UTF-8 中文 → GBK 后的高频词形
+    /嚙[踝緣諒databases]/g  // UTF-8 → Big5
+  ];
+  for (var p = 0; p < patterns.length; p++) {
+    var m = sample.match(patterns[p]);
+    if (m && m.length >= 2) {
+      return { garbled: true, reason: 'marker', detail: m.length };
+    }
+  }
+
+  return { garbled: false };
+}
+
 module.exports = {
+  looksGarbled,
   detectBOM,
   detectMetaCharset,
   isValidUtf8,

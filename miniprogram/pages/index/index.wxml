@@ -6,11 +6,13 @@
 <view class="page {{themeClass}}">
   <!-- 自定义导航栏 -->
   <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
-    <view class="nav-bar-content">
+    <!--
+      ADR-15：导航栏只留标题。设置不是首屏该占位置的东西 ——
+      它既不高频，也不是打开一份文档的必经之路。
+      入口下沉到页尾隐私脚注（那里本来就写着「可在设置中关闭」）。
+    -->
+    <view class="nav-bar-content" style="height: {{navContentHeight}}px; padding-right: {{navRightInset}}px;">
       <text class="nav-title">纯文本阅读器</text>
-      <view class="nav-settings" bindtap="goSettings">
-        <text class="nav-settings-icon">⚙️</text>
-      </view>
     </view>
   </view>
 
@@ -145,9 +147,14 @@
       但网络图片默认开启后，「不联网」这种说法对用户就不再准确了：
       <image> 会由用户设备直接向图床发起加载。这里必须写明，且给出关掉的去处。
     -->
+    <!--
+      ADR-15：这里是首页**唯一**的设置入口。去掉导航栏齿轮后，
+      没打开过任何文档的新用户就只剩这一条路 —— 那句「可在设置中关闭」
+      不能是句空话，所以第二行整体可点。
+    -->
     <view class="privacy-note">
       <text class="privacy-note-text">文档在本机解析，内容不上传服务器</text>
-      <text class="privacy-note-text">文档里的网络图片由你的手机直接加载，可在设置中关闭</text>
+      <text class="privacy-note-text privacy-note-link" bindtap="goSettings">文档里的网络图片由你的手机直接加载，可在设置中关闭 ›</text>
     </view>
 
     <view class="page-tail"></view>

@@ -245,3 +245,74 @@
 .page-tail {
   height: var(--size-spinner);
 }
+
+/* ─── 文字编码（ADR-15）─── */
+
+.encoding-desc {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-normal);
+  margin-bottom: var(--space-5);
+}
+
+.encoding-current {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.encoding-current-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.encoding-current-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* 六个选项排成两行三列。用 wrap 而不是等分单行：
+   「UTF-16LE」这种长标签在单行三等分里会被挤到换行，六个格子高度参差 */
+.encoding-options {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.encoding-option {
+  flex: 1 1 28%;
+  padding: var(--space-4) var(--space-2);
+  text-align: center;
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-tertiary);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  transition: all var(--motion-fast);
+}
+
+.encoding-option.active {
+  background-color: var(--accent-bg);
+  color: var(--accent);
+  font-weight: var(--weight-medium);
+}
+
+.encoding-note {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-4);
+}
+
+.encoding-empty {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  line-height: var(--leading-normal);
+}

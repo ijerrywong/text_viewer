@@ -444,6 +444,47 @@ ok('app.wxss 引入了令牌层', /@import\s+["']styles\/tokens\.wxss["']/.test(
   ok('定义了 .' + t, new RegExp('\\.' + t + '\\s*\\{').test(themeWxss));
 });
 
+// ─── 自定义导航栏必须避让胶囊 ───
+
+console.log('\n自定义导航栏');
+
+// navigationStyle:custom 之后顶部整条归我们画，唯独右上角那颗胶囊
+// （「···」「○」）不归 —— 微信把它画在页面之上，位置固定、移不走。
+// 不主动让开，右上角的按钮就被压在它下面，点不到。
+// 这个坑项目里踩过一次：搜索浮层为它改过设计（见 reader.wxss 注释），
+// 导航栏自己却漏了。
+var customNavPages = [];
+(function scanNavStyle(dir) {
+  if (!fs.existsSync(dir)) return;
+  fs.readdirSync(dir).forEach(function (name) {
+    var full = path.join(dir, name);
+    if (fs.statSync(full).isDirectory()) return scanNavStyle(full);
+    if (!/\.json$/.test(name)) return;
+    var raw = read(full);
+    if (raw && /"navigationStyle"\s*:\s*"custom"/.test(raw)) {
+      customNavPages.push(full.replace(/\.json$/, ''));
+    }
+  });
+})(ROOT);
+
+ok('扫到自定义导航栏页面', customNavPages.length > 0,
+  customNavPages.length + ' 个');
+
+customNavPages.forEach(function (base) {
+  var name = path.relative(ROOT, base);
+  var wxml = read(base + '.wxml') || '';
+  var js = read(base + '.js') || '';
+
+  // 右侧内边距必须是下发的变量，不能是写死的值
+  ok(name + ' 的导航栏让开了胶囊宽度',
+    /padding-right:\s*\{\{\s*navRightInset\s*\}\}/.test(wxml));
+  ok(name + ' 在 data 里声明了 navRightInset',
+    /navRightInset\s*:/.test(js));
+  // 避让宽度只能来自实测，不能靠常数猜
+  ok(name + ' 的避让宽度来自 platform.getNavLayout（实测胶囊位置）',
+    js.indexOf('getNavLayout') >= 0);
+});
+
 // ─── 废弃 API ───
 
 console.log('\n废弃 API');

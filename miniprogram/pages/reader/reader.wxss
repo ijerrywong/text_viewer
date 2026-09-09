@@ -1076,3 +1076,60 @@
 .empty-action {
   margin-top: var(--space-8);
 }
+
+/* ─── 编码疑似误判提示（ADR-15）───
+   导航栏原本常驻一个编码切换按钮，对不懂「GBK / Big5」的人是纯噪音。
+   改为只在 detect.looksGarbled 判定疑似乱码时出现。
+   形状沿用 .degrade-notice 那一套（同为「正文上方的黄条」），
+   但左侧色条用 warn 而不是 accent —— 它报告的是一个需要动手的问题，
+   不是一条陈述性说明。 */
+
+.encoding-notice {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) var(--space-6) 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  border-left: var(--bw-accent) solid var(--warn);
+}
+
+.encoding-notice-icon {
+  font-size: var(--text-md);
+  color: var(--warn);
+  flex-shrink: 0;
+}
+
+.encoding-notice-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.encoding-notice-text {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.encoding-notice-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.encoding-notice-action {
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  color: var(--accent);
+  padding: var(--space-1) var(--space-3);
+  border: var(--bw-hairline) solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
+.encoding-notice:active {
+  opacity: 0.7;
+}

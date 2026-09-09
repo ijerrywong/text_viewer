@@ -55,6 +55,10 @@ App({
     systemInfo: null,
     // 当前打开的文件信息
     currentFile: null,
+    // ADR-15：阅读页的编码状态（供设置页展示）与设置页选定的新编码
+    //（供阅读页 onShow 消费）。编码是单文档属性，不进持久化 settings。
+    readerEncoding: null,
+    pendingEncoding: null,
     // 隐私授权状态
     privacyAuthorized: false,
     privacyResolve: null,

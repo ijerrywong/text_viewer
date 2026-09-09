@@ -147,7 +147,41 @@
     </view>
   </view>
 
-  <!-- 4. 其他：缓存 / 关于 -->
+  <!--
+    4. 文字编码（ADR-15）
+    阅读页导航栏原本常驻一个编码切换按钮，对不懂「GBK / Big5」的人是噪音，
+    移到这里并配说明。这是**始终可达**的那份入口；乱码时的一键快捷入口
+    在阅读页（.encoding-notice），两者是同一个动作的两条路。
+
+    ⚠️ 编码是**单文档**属性，不是全局偏好 —— 为一份 GBK 文档选了 GBK，
+    不该让下一份 UTF-8 文档也按 GBK 解。所以这里改的只是当前那份文档，
+    下面的小字必须把这一点说清楚。
+  -->
+  <view class="settings-group">
+    <text class="group-title">文字编码</text>
+    <text class="encoding-desc">文档打开后满屏乱码，多半是编码识别错了。在这里换一种重新解读。</text>
+
+    <block wx:if="{{encodingAvailable}}">
+      <view class="encoding-current">
+        <text class="encoding-current-label">当前文档</text>
+        <text class="encoding-current-name ellipsis-1">{{encodingFileName || '未命名'}}</text>
+      </view>
+      <view class="encoding-options">
+        <view
+          class="encoding-option {{item === currentEncoding ? 'active' : ''}}"
+          wx:for="{{encodingList}}"
+          wx:key="*this"
+          data-encoding="{{item}}"
+          bindtap="setEncoding"
+        >{{item}}</view>
+      </view>
+      <text class="encoding-note">只对当前这份文档生效，打开新文档会重新自动识别</text>
+    </block>
+
+    <text class="encoding-empty" wx:else>{{encodingEmptyHint}}</text>
+  </view>
+
+  <!-- 5. 其他：缓存 / 关于 -->
   <view class="settings-group">
     <text class="group-title">其他</text>
     <view class="action-row" bindtap="clearCache">

@@ -4,7 +4,21 @@
   支持：TXT + Markdown（GFM 子集）+ HTML
 -->
 
-<!-- 行内段渲染模板（段落/标题/引用/列表项/脚注共用） -->
+<!--
+  行内段渲染模板（段落/标题/引用/列表项/脚注共用）
+
+  ⚠️ 这里的子 text **不要加 user-select**，哪怕开发者工具提示你加。
+
+  那条提示（「text 组件包含了长文本，可以考虑增加 user-select 属性」）只检查
+  节点**自身**有没有 userSelect，不看祖先。而调用方的外层 text 已经加了 ——
+  选择区域 __wa_selectable_region 加在外层，子节点在区域内，正文本来就能选、
+  能复制。对这个模板而言那是误报。
+
+  照着加的代价很实在：基础库的 userSelectChanged 会给节点设
+  display:inline-block **和 willChange:transform**。后者为每个节点创建合成层，
+  正文一个长文档有成千上万个 seg，逐个加上去直接撞 AGENTS §2.6 的性能红线；
+  inline-block 还会让行内片段在边界处换行，正文排版明显变差。
+-->
 <template name="inline-segments">
   <block wx:for="{{segments}}" wx:for-item="seg" wx:key="index">
     <text wx:if="{{seg.br}}">
@@ -20,7 +34,7 @@
 <view class="page {{themeClass}}" style="{{readerStyle}}">
   <!-- 自定义导航栏 -->
   <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
-    <view class="nav-bar-content">
+    <view class="nav-bar-content" style="height: {{navContentHeight}}px; padding-right: {{navRightInset}}px;">
       <view class="nav-back" bindtap="goBack">
         <text class="nav-back-icon">←</text>
       </view>
@@ -28,14 +42,13 @@
       <view class="nav-action" bindtap="toggleFileQueue" wx:if="{{fileQueue.length > 1}}">
         <text>{{activeQueueIdx + 1}}/{{fileQueue.length}}</text>
       </view>
-      <view class="nav-actions">
-        <view class="nav-action" bindtap="switchEncoding" wx:if="{{encoding}}">
-          <text>{{encoding}}</text>
-        </view>
-        <view class="nav-action" bindtap="goSettings">
-          <text>Aa</text>
-        </view>
-      </view>
+      <!--
+        ADR-15：导航栏不再放「Aa」和编码切换。
+        - Aa 与底部工具栏的「设置」是同一个去处，重复占位；
+        - 编码是识别误判时的兜底，不是常用操作，普通用户也不认识
+          「GBK / Big5」这些词。它改由乱码提示条按需唤出，见下方 .encoding-notice。
+        导航栏因此只剩「返回 + 文件名 + 多文件计数」。
+      -->
     </view>
   </view>
 
@@ -73,6 +86,21 @@
     <!-- 文档内容 -->
     <block wx:else>
       <!-- 降级/截断提示：降级必须可见，不能让用户对着残缺内容以为文件坏了 -->
+      <!--
+        ADR-15：编码切换的快捷入口。导航栏那个常驻按钮已移除，
+        这里只在 detect.looksGarbled 判定疑似乱码时出现 ——
+        识别对了就完全不打扰，识别错了则一键可达（AGENTS §2.5 要的正是「一键」）。
+        始终可达的那份入口在设置页，兜住这里的漏报。
+      -->
+      <view class="encoding-notice" wx:if="{{encodingSuspect}}" bindtap="switchEncoding">
+        <text class="encoding-notice-icon">⚠</text>
+        <view class="encoding-notice-body">
+          <text class="encoding-notice-text">这份文档可能显示为乱码</text>
+          <text class="encoding-notice-hint">当前按 {{encoding}} 解读，点这里换一种</text>
+        </view>
+        <text class="encoding-notice-action">切换</text>
+      </view>
+
       <view class="degrade-notice" wx:if="{{degradeNotice}}">
         <text class="degrade-notice-icon">ⓘ</text>
         <text class="degrade-notice-text">{{degradeNotice}}</text>
@@ -345,9 +373,11 @@
       <text class="tool-icon">⚙️</text>
       <text class="tool-label">设置</text>
     </view>
+    <!-- ADR-15：原标签是「进度」—— 那是名词，说的是它记录的东西，
+         而不是点下去会发生什么。改成动词「保存」。 -->
     <view class="tool-item" bindtap="saveProgress">
       <text class="tool-icon">🔖</text>
-      <text class="tool-label">进度</text>
+      <text class="tool-label">保存</text>
     </view>
   </view>
 

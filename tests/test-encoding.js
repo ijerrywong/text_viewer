@@ -154,6 +154,53 @@ ok('文本不误判为二进制', detect.isBinary(bytesOf('normal text 中文', 
 
 // ─── 汇总 ───
 
+// ─── 乱码判定（ADR-15）───
+//
+// 这个判定决定阅读页要不要把编码切换入口递出来。
+// **误报比漏报更伤**：漏报只是让用户多走一趟设置页，
+// 误报是对着一份好端端的文档喊「你可能是乱码」。
+// 所以正常文本的用例要比乱码用例更密。
+
+console.log('\n乱码判定 looksGarbled');
+
+function garbled(text) { return detect.looksGarbled(text).garbled; }
+
+// —— 不该报的 ——
+ok('正常中文不报',
+  !garbled('这是一份完全正常的中文文档，讲的是设计原则与实现取舍。'.repeat(8)));
+ok('正常英文不报',
+  !garbled('The quick brown fox jumps over the lazy dog. '.repeat(20)));
+ok('中英混排不报',
+  !garbled('用 Markdown 写文档时，code block 和 table 都很常用。'.repeat(10)));
+// 「烫」「屏」「踝」在乱码里高频，但本身都是常用字 —— 单字匹配会毁掉这一条
+ok('含常用字「烫」「屏」不报（乱码特征须匹配组合而非单字）',
+  !garbled('烫手的山芋，屏幕上的字，脚踝有点疼。'.repeat(10)));
+ok('代码文本不报',
+  !garbled('function foo(a, b) { return a + b; }\nvar x = [1,2,3];\n'.repeat(15)));
+ok('文本过短时不判（样本不足，宁可不报）',
+  !garbled('短'));
+ok('空串不报', !garbled(''));
+ok('null 不炸也不报', !garbled(null));
+
+// —— 该报的 ——
+ok('大量替换字符 → 报（编码猜太宽：GBK 文本按 UTF-8 解）',
+  garbled('正常开头' + '\uFFFD'.repeat(40) + '后面还有些内容凑够判定长度'.repeat(3)));
+ok('「锟斤拷」→ 报（编码猜太窄：UTF-8 按 GBK 解，字节全合法无替换字符）',
+  garbled('锟斤拷锟斤拷这是一段被解错的文本'.repeat(6)));
+
+// —— 判定理由要能分辨，排查时才知道是哪一类 ——
+var r1 = detect.looksGarbled('x' + '\uFFFD'.repeat(40) + '补足长度的正常内容'.repeat(3));
+ok('替换字符类的 reason 是 replacement', r1.reason === 'replacement', r1.reason);
+var r2 = detect.looksGarbled('锟斤拷锟斤拷这是一段被解错的文本'.repeat(6));
+ok('特征串类的 reason 是 marker', r2.reason === 'marker', r2.reason);
+
+// —— 编码清单是唯一定义处（阅读页与设置页共用）——
+ok('decoder 导出了手动切换用的编码清单',
+  Array.isArray(decoder.SUPPORTED_ENCODINGS) && decoder.SUPPORTED_ENCODINGS.length >= 5,
+  JSON.stringify(decoder.SUPPORTED_ENCODINGS));
+ok('清单里 UTF-8 排第一（最常见的放最前）',
+  decoder.SUPPORTED_ENCODINGS[0] === 'UTF-8');
+
 console.log('\n' + '='.repeat(40));
 console.log('通过: ' + pass + ' | 失败: ' + fail);
 if (fail > 0) {

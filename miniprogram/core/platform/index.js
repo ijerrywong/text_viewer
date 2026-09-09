@@ -86,8 +86,74 @@ function withFallback(info) {
   return mergeInto(out, info || {});
 }
 
+// ─── 自定义导航栏与胶囊按钮 ───
+
+var design = require('../tokens/design.js');
+
+/**
+ * 右上角胶囊按钮（「···」和「○」）的位置与尺寸。
+ *
+ * `navigationStyle: custom` 之后，顶部整条都归我们画，**唯独这块不归** ——
+ * 胶囊由微信绘制在页面之上，位置固定，既盖不住也移不走。所以自定义导航栏
+ * 右侧放任何东西之前，都得先问它占了哪儿。
+ *
+ * @returns {Object|null} {width,height,top,right,bottom,left}（px），拿不到时 null
+ */
+function getMenuButtonRect() {
+  try {
+    if (typeof wx !== 'undefined' &&
+        typeof wx.getMenuButtonBoundingClientRect === 'function') {
+      var rect = wx.getMenuButtonBoundingClientRect();
+      // PC 端和部分宿主会返回一个全 0 的对象，那种情况按「没有胶囊」处理，
+      // 否则右侧会凭空让出一大块空白
+      if (rect && rect.width > 0 && rect.height > 0) return rect;
+    }
+  } catch (e) {
+    // 接口不存在或调用失败，走下面的兜底
+  }
+  return null;
+}
+
+/**
+ * 自定义导航栏的布局参数。
+ *
+ * @param {Object} sys - 已 withFallback 过的系统信息
+ * @returns {{contentHeight:number, rightInset:number}} 均为 px
+ *   contentHeight - 导航栏内容区高度（不含状态栏）
+ *   rightInset    - 右侧需要让开的宽度，直接用作 padding-right
+ */
+function getNavLayout(sys) {
+  var statusBarHeight = sys.statusBarHeight;
+  var rect = getMenuButtonRect();
+
+  if (rect) {
+    // 胶囊到状态栏底部的距离。上下各留同样一份，胶囊就垂直居中于内容区，
+    // 我们自己的按钮也跟着对齐到同一条水平中线上
+    var gap = rect.top - statusBarHeight;
+    // 极端窗口（分屏、折叠屏中间态）下 gap 可能算成负数，钳一下
+    if (!(gap > 0)) gap = 0;
+
+    return {
+      // 内容区高度按实测的胶囊位置算，比 44/48 的平台规范值更贴合当前设备
+      contentHeight: gap * 2 + rect.height,
+      // 让出胶囊左边缘以右的全部宽度，再加一份 gap 作为视觉间隙 ——
+      // 紧贴着胶囊放按钮，点击热区会互相干扰
+      rightInset: Math.max(0, sys.windowWidth - rect.left + gap)
+    };
+  }
+
+  // 拿不到胶囊信息：回到平台规范值，右侧不额外让开
+  //（真机上这条几乎不会走到，主要是 Node 测试和异常宿主）
+  return {
+    contentHeight: design.navContentPx(sys.platform),
+    rightInset: 0
+  };
+}
+
 module.exports = {
   getSystemInfo: getSystemInfo,
   withFallback: withFallback,
+  getMenuButtonRect: getMenuButtonRect,
+  getNavLayout: getNavLayout,
   FALLBACK: FALLBACK
 };

@@ -351,3 +351,14 @@
 .page-tail {
   height: var(--size-spinner);
 }
+
+/* ADR-15：去掉导航栏齿轮后，这行脚注是首页唯一的设置入口。
+   给它一个可点的暗示（强调色），但不改字号 —— 它仍然是脚注，
+   不该在首屏抢视觉重量。 */
+.privacy-note-link {
+  color: var(--accent);
+}
+
+.privacy-note-link:active {
+  opacity: 0.6;
+}

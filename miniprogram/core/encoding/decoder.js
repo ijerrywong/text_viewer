@@ -588,7 +588,15 @@ function decode(bytes, encoding, bomLength) {
   }
 }
 
+/**
+ * 手动切换时可选的编码清单（AGENTS §2.5 的兜底入口用）。
+ * 顺序即展示顺序：UTF-8 最常见排第一，中文大陆次之，繁体再次。
+ * ⚠️ 唯一定义处 —— 阅读页的乱码提示条和设置页的编码分组都引这里。
+ */
+var SUPPORTED_ENCODINGS = ['UTF-8', 'GBK', 'GB18030', 'Big5', 'UTF-16LE', 'UTF-16BE'];
+
 module.exports = {
+  SUPPORTED_ENCODINGS,
   decode,
   decodeUtf8,
   decodeGb18030,

@@ -11,13 +11,16 @@
 
 // ─── 常量 ───
 
+// 阈值的唯一定义处：core/tokens/limits.js
+var LIMITS = require('../../tokens/limits.js');
+
 // base64 图片抽取阈值：大于此值的 data URI 才落盘
-var BASE64_EXTRACT_THRESHOLD = 4096; // 4KB
+var BASE64_EXTRACT_THRESHOLD = LIMITS.BASE64_EXTRACT_THRESHOLD;
 
 // IR 安全限制
-var MAX_BLOCKS = 50000;
-var MAX_TOTAL_TEXT = 5 * 1024 * 1024; // 5MB
-var MAX_IMAGES = 1000;
+var MAX_BLOCKS = LIMITS.MAX_BLOCKS;
+var MAX_TOTAL_TEXT = LIMITS.MAX_TOTAL_TEXT;
+var MAX_IMAGES = LIMITS.MAX_IMAGES;
 
 // ─── base64 图片抽取（C10/D3/D12）───
 

@@ -21,12 +21,14 @@ var detect = require('../detect/index.js');
 var decoder = require('../encoding/decoder.js');
 var store = require('../store/index.js');
 
-// 超过这个大小走"纯文本分页"降级，不整份读进内存（AGENTS §2.6）
-var HUGE_FILE_BYTES = 50 * 1024 * 1024;
+// 文件大小档位的唯一定义处：core/tokens/limits.js（AGENTS §2.6）
+var LIMITS = require('../tokens/limits.js');
+// 超过这个大小走"纯文本分页"降级，不整份读进内存
+var HUGE_FILE_BYTES = LIMITS.HUGE_FILE_BYTES;
 // 超过这个大小先给用户一个明确提示，而不是闷头卡住
-var LARGE_FILE_BYTES = 10 * 1024 * 1024;
+var LARGE_FILE_BYTES = LIMITS.LARGE_FILE_BYTES;
 // 巨型文件降级模式下实际读取的字节数
-var DEGRADED_READ_BYTES = 4 * 1024 * 1024;
+var DEGRADED_READ_BYTES = LIMITS.DEGRADED_READ_BYTES;
 
 function hashString(str) {
   var hash = 0;

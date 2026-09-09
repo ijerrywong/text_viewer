@@ -11,6 +11,11 @@
  *
  * 数据流：
  * 主线程读文件+解码 → postMessage(字符串) → Worker 解析 → 分批 postMessage(IR)
+ *
+ * ⚠️ 令牌层的一个物理例外：本文件**不能** require core/tokens/limits.js。
+ * Worker 代码包是独立打包的，只能引用 workers/ 目录内的文件。
+ * 所以下面的 BATCH_SIZE 是 limits.js 里 IR_BATCH_SIZE 的手工副本，
+ * 改那边记得改这里 —— 这是全项目唯一一处允许的重复定义。
  */
 
 // Worker 通信
@@ -35,7 +40,7 @@ worker.onMessage(function(message) {
       };
 
       // 分批回传
-      const BATCH_SIZE = 50;
+      const BATCH_SIZE = 50; // = LIMITS.IR_BATCH_SIZE，见文件头说明
       const total = result.blocks.length;
       const batches = Math.ceil(total / BATCH_SIZE);
 

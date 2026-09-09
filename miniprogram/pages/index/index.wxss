@@ -1,4 +1,8 @@
-/* index.wxss - 首页样式 */
+/* index.wxss - 首页样式
+ *
+ * 数值一律走令牌（styles/tokens.wxss，由 core/tokens/design.js 生成）。
+ * 不要在这里写 rpx / 色值字面量 —— tests/test-tokens.js 会拦。
+ */
 
 /* height 必须是确定值，不能只给 min-height。
  * 下面 .content 是 `flex:1; height:0` 的 scroll-view：
@@ -19,36 +23,36 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: var(--z-nav-bar);
   background-color: var(--bg-primary);
 }
 
 .nav-bar-content {
-  height: 88rpx;
+  height: var(--size-nav-bar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32rpx;
+  padding: 0 var(--space-8);
 }
 
 .nav-title {
-  font-size: 36rpx;
-  font-weight: 600;
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
   color: var(--text-primary);
 }
 
 .nav-settings {
-  width: 64rpx;
-  height: 64rpx;
+  width: var(--size-nav-icon);
+  height: var(--size-nav-icon);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--bg-tertiary);
 }
 
 .nav-settings text {
-  font-size: 36rpx;
+  font-size: var(--text-4xl);
   color: var(--text-secondary);
 }
 
@@ -60,56 +64,56 @@
 
 /* Hero 区 */
 .hero {
-  padding: 48rpx 32rpx 32rpx;
+  padding: var(--space-12) var(--space-8) var(--space-8);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .hero-badge {
-  padding: 8rpx 24rpx;
-  border-radius: 100rpx;
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-pill);
   background-color: var(--accent-bg);
-  margin-bottom: 24rpx;
+  margin-bottom: var(--space-6);
 }
 
 .hero-badge-text {
-  font-size: 22rpx;
+  font-size: var(--text-xs);
   color: var(--accent);
-  letter-spacing: 1rpx;
+  letter-spacing: var(--tracking-wide);
 }
 
 .hero-title {
-  font-size: 48rpx;
-  font-weight: 700;
+  font-size: var(--text-6xl);
+  font-weight: var(--weight-bold);
   color: var(--text-primary);
   text-align: center;
-  line-height: 1.4;
-  margin-bottom: 16rpx;
+  line-height: var(--leading-tight);
+  margin-bottom: var(--space-4);
 }
 
 .hero-desc {
-  font-size: 26rpx;
+  font-size: var(--text-md);
   color: var(--text-secondary);
   text-align: center;
-  line-height: 1.6;
+  line-height: var(--leading-normal);
 }
 
 /* 入口卡片 */
 .entries {
-  padding: 16rpx 32rpx;
+  padding: var(--space-4) var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: var(--space-5);
 }
 
 .entry-card {
   display: flex;
   align-items: center;
-  padding: 32rpx;
+  padding: var(--space-8);
   background-color: var(--bg-primary);
-  border-radius: 24rpx;
-  box-shadow: 0 2rpx 16rpx var(--shadow);
+  border-radius: var(--radius-3xl);
+  box-shadow: var(--shadow-card-xl) var(--shadow);
 }
 
 .entry-primary {
@@ -119,21 +123,21 @@
 .entry-primary .entry-title,
 .entry-primary .entry-desc,
 .entry-primary .entry-arrow {
-  color: #ffffff;
+  color: var(--on-accent);
 }
 
 .entry-primary .entry-icon-wrap {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--on-accent-bg);
 }
 
 .entry-primary .entry-icon {
-  color: #ffffff;
+  color: var(--on-accent);
 }
 
 .entry-icon-wrap {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 20rpx;
+  width: var(--size-entry-icon);
+  height: var(--size-entry-icon);
+  border-radius: var(--radius-2xl);
   background-color: var(--bg-tertiary);
   display: flex;
   align-items: center;
@@ -142,65 +146,65 @@
 }
 
 .entry-icon {
-  font-size: 40rpx;
+  font-size: var(--text-5xl);
   color: var(--accent);
 }
 
 .entry-body {
   flex: 1;
-  margin-left: 24rpx;
+  margin-left: var(--space-6);
   display: flex;
   flex-direction: column;
 }
 
 .entry-title {
-  font-size: 32rpx;
-  font-weight: 600;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
   color: var(--text-primary);
-  margin-bottom: 4rpx;
+  margin-bottom: var(--space-1);
 }
 
 .entry-desc {
-  font-size: 24rpx;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
 /* 入口卡片里的小字标注（剪贴板「点了才读」的事先说明） */
 .entry-note {
-  font-size: 22rpx;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
-  margin-top: 6rpx;
+  margin-top: var(--space-2);
 }
 
 .entry-primary .entry-note {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--on-accent-dim);
 }
 
 .entry-arrow {
-  font-size: 32rpx;
+  font-size: var(--text-2xl);
   color: var(--text-tertiary);
 }
 
 /* 区块标题 */
 .section {
-  padding: 32rpx;
+  padding: var(--space-8);
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--space-5);
 }
 
 .section-title {
-  font-size: 30rpx;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
   color: var(--text-primary);
 }
 
 .section-action {
-  font-size: 26rpx;
+  font-size: var(--text-md);
   color: var(--text-tertiary);
 }
 
@@ -208,16 +212,16 @@
 .recent-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--space-4);
 }
 
 .recent-item {
   display: flex;
   align-items: center;
-  padding: 28rpx 32rpx;
+  padding: var(--space-6) var(--space-8);
   background-color: var(--bg-primary);
-  border-radius: 20rpx;
-  box-shadow: 0 2rpx 8rpx var(--shadow);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-card) var(--shadow);
 }
 
 .recent-info {
@@ -228,22 +232,22 @@
 }
 
 .recent-name {
-  font-size: 28rpx;
+  font-size: var(--text-lg);
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .recent-meta {
-  font-size: 22rpx;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
-  margin-top: 6rpx;
+  margin-top: var(--space-2);
 }
 
 .recent-format {
-  padding: 6rpx 16rpx;
-  border-radius: 8rpx;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
   background-color: var(--accent-bg);
-  font-size: 22rpx;
+  font-size: var(--text-xs);
   color: var(--accent);
   text-transform: uppercase;
   flex-shrink: 0;
@@ -251,24 +255,24 @@
 
 /* 提示卡片 */
 .tip-card {
-  margin: 0 32rpx 32rpx;
-  padding: 24rpx 28rpx;
+  margin: 0 var(--space-8) var(--space-8);
+  padding: var(--space-6);
   background-color: var(--accent-bg);
-  border-radius: 16rpx;
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: flex-start;
-  gap: 16rpx;
+  gap: var(--space-4);
 }
 
 .tip-text {
   flex: 1;
-  font-size: 24rpx;
+  font-size: var(--text-sm);
   color: var(--accent);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
 }
 
 .tip-close {
-  font-size: 28rpx;
+  font-size: var(--text-lg);
   color: var(--accent);
   opacity: 0.6;
   flex-shrink: 0;
@@ -276,43 +280,46 @@
 
 /* 页尾隐私说明（ADR-13：从 hero badge 下沉，弱化为脚注） */
 .privacy-note {
-  padding: 8rpx 32rpx 0;
+  padding: var(--space-2) var(--space-8) 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6rpx;
+  gap: var(--space-2);
 }
 
 .privacy-note-text {
-  font-size: 22rpx;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   text-align: center;
-  line-height: 1.6;
+  line-height: var(--leading-normal);
 }
-
-/* 隐私授权弹窗 */
 
 /* 隐私弹窗样式已移入 components/privacy-dialog/ */
 
 /* 朋友圈单页模式横幅（scene 1154，平台禁用跳转/选文件/剪贴板） */
 .single-page-banner {
-  margin: 24rpx 32rpx 0;
-  padding: 24rpx 28rpx;
+  margin: var(--space-6) var(--space-8) 0;
+  padding: var(--space-6);
   background-color: var(--accent-bg);
-  border-radius: 16rpx;
+  border-radius: var(--radius-xl);
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
+  gap: var(--space-3);
 }
 
 .single-page-title {
-  font-size: 28rpx;
-  font-weight: bold;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   color: var(--accent);
 }
 
 .single-page-desc {
-  font-size: 24rpx;
+  font-size: var(--text-sm);
   color: var(--accent);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
+}
+
+/* 页尾留白：底部工具栏/安全区之外再垫一段，最后一条内容不会贴边 */
+.page-tail {
+  height: var(--size-spinner);
 }

@@ -23,9 +23,19 @@ var preprocess = require('./preprocess.js');
 var tailwind = require('./tailwind.js');
 var degrade = require('./degrade.js');
 var inline = require('../md/inline.js');
+var LIMITS = require('../../tokens/limits.js');
 
 // ─── 标签默认样式 ───
 
+/**
+ * 标签默认样式 —— 小程序没有浏览器那样的用户代理样式表，
+ * 外来 HTML 的 <pre>/<a>/<table> 得由我们补上默认外观。
+ *
+ * ⚠️ 这里的色值**故意不走 core/tokens 的主题令牌**：这是渲染
+ * 「别人的文档」该长什么样，和阅读器自身 UI 的主题是两个体系 ——
+ * 让外来文档跟着我们的深色/护眼主题变色，反而破坏文档作者的设计意图。
+ * tests/test-tokens.js 里对此有对应的豁免。
+ */
 var TAG_DEFAULTS = {
   'h1': { 'font-weight': 'bold', 'font-size': '32px', 'margin-top': '16px', 'margin-bottom': '8px' },
   'h2': { 'font-weight': 'bold', 'font-size': '28px', 'margin-top': '14px', 'margin-bottom': '7px' },
@@ -369,7 +379,7 @@ function convert(html, options) {
  */
 function walkDOM(node, ancestorPath, ctx) {
   if (!node) return;
-  if (ctx.blocks.length > 50000) {
+  if (ctx.blocks.length > LIMITS.MAX_BLOCKS) {
     ctx.truncated = true;
     return;
   }

@@ -23,14 +23,10 @@
  */
 
 // ─── 解析上限（AGENTS §2.4 防解析炸弹）───
-// HTML 侧的上限在 html/tokenizer.js 与 html/postprocess.js 里，
-// 这里是 TXT / Markdown / 代码 / JSON 侧的对应上限。
-var LIMITS = {
-  MAX_BLOCKS: 50000,        // 块数上限，超出截断并提示
-  MAX_LINE_CHARS: 20000,    // 单行字符上限（B13：minified JSON/HTML 一行几 MB）
-  MAX_BLOCK_CHARS: 100000,  // 单块字符上限（防止一个巨块把 setData 撑爆）
-  MAX_TOC: 2000             // 目录条目上限（TXT 启发式标题可能爆量）
-};
+// 全部阈值的唯一定义处是 core/tokens/limits.js —— 此前 MAX_BLOCKS 这一个
+// 数字在 5 个文件里各写了一遍，调一次要改 5 处，漏一处就出现
+// 「Markdown 截断了、HTML 没截断」这种只在特定格式下复现的怪行为。
+var LIMITS = require('../tokens/limits.js');
 
 /**
  * 截断超长单行（B13）
@@ -461,7 +457,7 @@ function parseCode(text) {
 
   const lines = text.split('\n');
   const blocks = [];
-  const CHUNK_SIZE = 50;
+  const CHUNK_SIZE = LIMITS.LINE_CHUNK_SIZE;
   let counter = 0;
   let truncated = false;
 

@@ -428,16 +428,53 @@ ok('没有在缺字体的情况下使用私有区图标字符',
 
 console.log('\n主题');
 
+// 主题定义在 styles/tokens.wxss（由 core/tokens/design.js 生成），
+// app.wxss 只 @import 它 —— 两个文件都查，免得日后搬家又漏
 var appWxss = read(path.join(ROOT, 'app.wxss')) || '';
+var tokensWxss = read(path.join(ROOT, 'styles', 'tokens.wxss')) || '';
+var themeWxss = appWxss + '\n' + tokensWxss;
 // 注释里会提到这个反例，先去掉注释再查
-var appWxssCode = appWxss.replace(/\/\*[\s\S]*?\*\//g, ' ');
+var themeWxssCode = themeWxss.replace(/\/\*[\s\S]*?\*\//g, ' ');
 // 主题 class 是 setData 到页面里的子 view 上的，
 // 写成 `page.theme-x` 永远匹配不上（page 指的是页面根元素本身）
 ok('主题选择器不是 page.theme-*（那样永远匹配不上）',
-  !/\bpage\.theme-/.test(appWxssCode));
+  !/\bpage\.theme-/.test(themeWxssCode));
+ok('app.wxss 引入了令牌层', /@import\s+["']styles\/tokens\.wxss["']/.test(appWxss));
 ['theme-dark', 'theme-sepia'].forEach(function (t) {
-  ok('定义了 .' + t, new RegExp('\\.' + t + '\\s*\\{').test(appWxss));
+  ok('定义了 .' + t, new RegExp('\\.' + t + '\\s*\\{').test(themeWxss));
 });
+
+// ─── 废弃 API ───
+
+console.log('\n废弃 API');
+
+// wx.getSystemInfoSync 已被官方标记废弃，运行时每次调用都打一条 deprecation
+// 警告。统一走 core/platform/index.js —— 那里按基础库能力降级，
+// 老基础库上仍然回落到 getSystemInfoSync，所以兼容性没有损失。
+var PLATFORM_MODULE = path.join(ROOT, 'core', 'platform', 'index.js');
+var deprecatedCalls = [];
+
+(function scanDeprecated(dir) {
+  if (!fs.existsSync(dir)) return;
+  fs.readdirSync(dir).forEach(function (name) {
+    var full = path.join(dir, name);
+    if (fs.statSync(full).isDirectory()) return scanDeprecated(full);
+    if (!/\.js$/.test(name)) return;
+    if (full === PLATFORM_MODULE) return;   // 兜底实现本身允许调用
+    var src = read(full) || '';
+    src.split('\n').forEach(function (line, i) {
+      if (/^\s*(\/\/|\*)/.test(line)) return;
+      if (line.indexOf('wx.getSystemInfoSync') >= 0) {
+        deprecatedCalls.push(path.relative(ROOT, full) + ':' + (i + 1));
+      }
+    });
+  });
+})(ROOT);
+
+ok('没有直接调用 wx.getSystemInfoSync（走 core/platform）',
+  deprecatedCalls.length === 0, deprecatedCalls.join('; '));
+
+ok('core/platform/index.js 存在', fs.existsSync(PLATFORM_MODULE));
 
 // ─── 全屏 flex 布局 ───
 

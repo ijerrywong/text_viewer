@@ -17,23 +17,12 @@
  * - wx.storage: meta:{id}, recent, progress:{id}, settings
  */
 
-const MAX_RECENT = 50;
-
-/**
- * LRU 清理阈值
- *
- * ⚠️ 官方口径：**本地缓存文件与本地用户文件加起来，每个小程序共 200MB**。
- * 也就是说 200MB 是**平台配额本身**，不是我们可以用到的量。
- *
- * 原先把阈值直接设成 200MB，等于宣布「永远不清理」：
- * 真正先撞墙的一定是 copyFile 写失败（配额里还躺着微信自己的缓存文件），
- * LRU 这条主动防线从来没有机会生效，只剩 intake 里那个写失败后的补救路径。
- * 而那条路径要先失败一次、清一次、再重试一次，用户实打实地多等一轮。
- *
- * 压到 120MB 留出足够余量，让清理发生在写入之前而不是之后。
- */
-const CACHE_THRESHOLD = 120 * 1024 * 1024;
-var KV_WARN_THRESHOLD = 8 * 1024 * 1024; // KV 存储 8MB 告警（官方上限 10MB/用户/小程序）
+// 存储配额的唯一定义处：core/tokens/limits.js
+// （LRU 阈值为什么是 120MB 而不是官方的 200MB，理由写在那里）
+const LIMITS = require('../tokens/limits.js');
+const MAX_RECENT = LIMITS.MAX_RECENT;
+const CACHE_THRESHOLD = LIMITS.CACHE_THRESHOLD;
+var KV_WARN_THRESHOLD = LIMITS.KV_WARN_THRESHOLD;
 
 /**
  * 保存阅读进度

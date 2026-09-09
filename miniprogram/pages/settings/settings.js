@@ -3,15 +3,18 @@
  */
 
 const app = getApp();
+const design = require('../../core/tokens/design.js');
 
 Page({
   data: {
     themeClass: '',
-    accentColor: '#576b95',
+    // slider / switch 是原生组件，只吃 JS 传进去的色值，读不到 CSS 变量，
+    // 所以强调色必须在这里再取一次 —— 但取的是同一份主题表
+    accentColor: design.THEMES.light.accent,
     settings: {
       theme: 'light',
-      fontSize: 16,
-      lineHeight: 1.8,
+      fontSize: design.TYPOGRAPHY_DEFAULT.fontSize,
+      lineHeight: design.TYPOGRAPHY_DEFAULT.lineHeight,
       fontFamily: 'system',
       networkImages: true,
       keepScreenOn: true
@@ -53,12 +56,7 @@ Page({
   },
 
   getAccentColor(theme) {
-    const colors = {
-      light: '#576b95',
-      dark: '#7c8db5',
-      sepia: '#8b6914'
-    };
-    return colors[theme] || colors.light;
+    return (design.THEMES[theme] || design.THEMES.light).accent;
   },
 
   setTheme(e) {

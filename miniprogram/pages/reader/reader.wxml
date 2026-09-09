@@ -17,7 +17,7 @@
   </block>
 </template>
 
-<view class="page {{themeClass}}">
+<view class="page {{themeClass}}" style="{{readerStyle}}">
   <!-- 自定义导航栏 -->
   <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
     <view class="nav-bar-content">
@@ -61,7 +61,7 @@
     <view class="empty-state" wx:elif="{{error}}">
       <text class="empty-icon">⚠</text>
       <text class="empty-text">{{error}}</text>
-      <view class="btn btn-outline" bindtap="goBack" style="margin-top: 32rpx;">返回首页</view>
+      <view class="btn btn-outline empty-action" bindtap="goBack">返回首页</view>
     </view>
 
     <!-- 空内容 -->
@@ -120,7 +120,7 @@
             wx:elif="{{item.type === 'listItem'}}"
             id="block-{{item._vIndex}}"
             class="block block-list-item {{item._hitClass}}"
-            style="padding-left: {{(item.depth || 0) * 32 + 32}}rpx; {{item.style || ''}}"
+            style="padding-left: calc(var(--rd-list-indent) * {{(item.depth || 0) + 1}}); {{item.style || ''}}"
           >
             <text class="list-marker" wx:if="{{item.task}}">{{item.checked ? '✅' : '⬜'}}</text>
             <text class="list-marker" wx:elif="{{item.ordered}}">{{item.ordIndex}}.</text>
@@ -135,7 +135,7 @@
             wx:elif="{{item.type === 'quote'}}"
             id="block-{{item._vIndex}}"
             class="block block-quote {{item._hitClass}}"
-            style="margin-left: {{(item.depth || 1) * 16}}rpx;"
+            style="margin-left: calc(var(--rd-quote-indent) * {{item.depth || 1}});"
           >
             <text user-select="{{true}}" class="quote-text">
               <template is="inline-segments" data="{{segments: item.segments}}" />

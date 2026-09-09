@@ -11,6 +11,9 @@
  * 扩展名 + 魔数(magic bytes) + 内容嗅探
  */
 
+// 阈值的唯一定义处：core/tokens/limits.js
+var LIMITS = require('../tokens/limits.js');
+
 /**
  * 检测 BOM 并返回编码
  * @param {Uint8Array} bytes - 文件头部字节
@@ -315,7 +318,7 @@ function detectFormat(name, textContent) {
     // 只在内容不大时才真的 JSON.parse：调用方一般只传前 2KB，
     // 但万一有人传了整份 10MB 文档进来，这里会白白解析一遍再丢掉。
     if (/^[\s]*[\[{]/.test(prefix)) {
-      if (textContent.length <= 64 * 1024) {
+      if (textContent.length <= LIMITS.JSON_SNIFF_MAX_BYTES) {
         try {
           JSON.parse(textContent);
           return { format: 'json', confidence: 0.95 };

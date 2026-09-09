@@ -95,9 +95,10 @@ var AUTO_CLOSE_RULES = {
   'option': { 'option': 1, 'optgroup': 1 }
 };
 
-// 安全限制
-var MAX_NODES = 50000;
-var MAX_DEPTH = 100;
+// 安全限制（唯一定义处：core/tokens/limits.js）
+var LIMITS = require('../../tokens/limits.js');
+var MAX_NODES = LIMITS.MAX_NODES;
+var MAX_DEPTH = LIMITS.MAX_DEPTH;
 
 // ─── HTML 实体解码 ───
 

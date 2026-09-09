@@ -10,6 +10,8 @@ var app = getApp();
 var detect = require('../../core/detect/index.js');
 var parseMod = require('../../core/parse/index.js');
 var renderMod = require('../../core/render/index.js');
+var platform = require('../../core/platform/index.js');
+var design = require('../../core/tokens/design.js');
 var intake = require('../../core/intake/index.js');
 var store = require('../../core/store/index.js');
 var inlineMod = require('../../core/parse/md/inline.js');
@@ -190,9 +192,14 @@ Page({
     showPrivacy: false,
 
     // 设置
-    fontSize: 16,
-    lineHeight: 1.8,
-    fontFamily: 'system'
+    fontSize: renderMod.DEFAULT_SETTINGS.fontSize,
+    lineHeight: renderMod.DEFAULT_SETTINGS.lineHeight,
+    fontFamily: 'system',
+    // 正文排版令牌，下发到页面根节点的 inline style 上覆盖 tokens.wxss 的默认值。
+    // ⚠️ 没有这一步，设置页的字号/行距滑块就是**断路**的：
+    // WXSS 里 var(--reader-font-size) 永远拿静态默认值，正文纹丝不动，
+    // 而 core/render 的高度预估却按用户设的新值在算 —— 两边反向背离，越调越跳。
+    readerStyle: ''
   },
 
   // ─── 内部状态（不参与 setData）───
@@ -275,20 +282,23 @@ Page({
    * 拆成独立方法是为了让 onResize 能原样再跑一遍 —— 见 onResize 的注释。
    */
   measureViewport: function() {
-    var sys = app.globalData.systemInfo || wx.getSystemInfoSync();
-    var statusBarHeight = sys.statusBarHeight || 20;
-    var navContent = sys.platform === 'android' ? 48 : 44;
+    // withFallback 补齐缺字段，省得每个读取点各写一遍 || 兜底值
+    var sys = platform.withFallback(app.globalData.systemInfo || platform.getSystemInfo());
+    var statusBarHeight = sys.statusBarHeight;
+    // iOS 44pt / Android 48dp，两家的设计规范，算错首屏会被导航栏压住
+    var navContent = design.navContentPx(sys.platform);
 
-    this._screenWidth = sys.windowWidth || 375;
-    this._rpxRatio = 750 / this._screenWidth;
+    this._screenWidth = sys.windowWidth;
+    this._rpxRatio = design.RPX_PER_SCREEN / this._screenWidth;
 
-    var viewportPx = (sys.windowHeight || 667) - statusBarHeight - navContent - 50;
+    var viewportPx = sys.windowHeight - statusBarHeight - navContent -
+      design.CHROME_PX.toolbarHeight;
     this._viewportRpx = viewportPx * this._rpxRatio;
 
     this.setData({
       statusBarHeight: statusBarHeight,
       navBarHeight: statusBarHeight + navContent,
-      toolbarHeight: 50 * this._rpxRatio +
+      toolbarHeight: design.CHROME_PX.toolbarHeight * this._rpxRatio +
         (sys.safeArea ? (sys.screenHeight - sys.safeArea.bottom) * this._rpxRatio : 0)
     });
   },
@@ -434,8 +444,8 @@ Page({
   applySettings: function() {
     var s = app.globalData.settings || {};
     var theme = s.theme || 'light';
-    var nextFontSize = s.fontSize || 16;
-    var nextLineHeight = s.lineHeight || 1.8;
+    var nextFontSize = s.fontSize || renderMod.DEFAULT_SETTINGS.fontSize;
+    var nextLineHeight = s.lineHeight || renderMod.DEFAULT_SETTINGS.lineHeight;
     var typographyChanged = nextFontSize !== this.data.fontSize ||
       nextLineHeight !== this.data.lineHeight;
 
@@ -443,7 +453,9 @@ Page({
       themeClass: 'theme-' + theme,
       fontSize: nextFontSize,
       lineHeight: nextLineHeight,
-      fontFamily: s.fontFamily || 'system'
+      fontFamily: s.fontFamily || 'system',
+      readerStyle: '--reader-font-size:' + nextFontSize + 'px;' +
+        '--reader-line-height:' + nextLineHeight + ';'
     });
 
     // E1b：字号/行距一变，之前测出的真实高度全部作废，

@@ -146,5 +146,5 @@
     </view>
   </view>
 
-  <view style="height: 60rpx;"></view>
+  <view class="page-tail"></view>
 </view>

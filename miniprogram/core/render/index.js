@@ -12,20 +12,51 @@
  * 高度测量由调用方（reader 页面）通过 createSelectorQuery 完成
  */
 
-// ─── 默认渲染设置 ───
-const DEFAULT_SETTINGS = {
-  fontSize: 16,      // px（逻辑像素）
-  lineHeight: 1.8,   // 倍率
-  screenWidth: 375   // px（逻辑像素，iPhone 标准）
-};
+// ─── 令牌 ───
+//
+// ⚠️ 这个文件里的每一个几何常量都必须与 reader.wxss 里的实际样式相等，
+// 否则预估高度和真实高度对不上，虚拟滚动就会跳（AGENTS §6 门禁第 7 条）。
+// 所以两边都从 core/tokens/design.js 取值，谁都不再手写字面量。
+const tokens = require('../tokens/design.js');
+const RD = tokens.READER;
+const HEADING_SIZE = tokens.HEADING_SIZE;
+const BORDER = tokens.BORDER;
 
-// rpx ↔ px 转换：750rpx = screenWidth px
+// ─── 默认渲染设置 ───
+// 用户可调的字号/行距，默认值同样只有一个定义处（设置页、阅读器、
+// tokens.wxss 都从这里取，此前是各写一份 16 / 1.8）
+const DEFAULT_SETTINGS = tokens.TYPOGRAPHY_DEFAULT;
+
+// rpx ↔ px 转换：750rpx = screenWidth px（RPX_PER_SCREEN 定义在令牌层）
+const RPX_PER_SCREEN = tokens.RPX_PER_SCREEN;
+
 function pxToRpx(px, screenWidth) {
-  return px * (750 / (screenWidth || 375));
+  return px * (RPX_PER_SCREEN / (screenWidth || DEFAULT_SETTINGS.screenWidth));
 }
 
 function rpxToPx(rpx, screenWidth) {
-  return rpx * ((screenWidth || 375) / 750);
+  return rpx * ((screenWidth || DEFAULT_SETTINGS.screenWidth) / RPX_PER_SCREEN);
+}
+
+/**
+ * 正文可用宽度（px）。
+ * 从屏宽里扣掉 .reader-content 的左右内边距，外加调用方给的额外缩进（rpx）。
+ */
+function contentWidthPx(s, extraIndentRpx) {
+  var gutters = RD.contentPadding * 2 + (extraIndentRpx || 0);
+  return s.screenWidth - rpxToPx(gutters, s.screenWidth);
+}
+
+/**
+ * 一段文本占几行。
+ * 每行字符数按混合估算：CJK 约 fontSize×1.0 宽、ASCII 约 fontSize×0.55 宽，
+ * 取 0.7 作为折中。
+ */
+const CHAR_WIDTH_RATIO = 0.7;
+
+function lineCountOf(text, fontSizePx, widthPx) {
+  var charsPerLine = Math.max(1, Math.floor(widthPx / (fontSizePx * CHAR_WIDTH_RATIO)));
+  return Math.ceil((text || '').length / charsPerLine);
 }
 
 // ─── 高度预估 ───
@@ -60,117 +91,112 @@ function estimateHeight(block, settings) {
 
   switch (block.type) {
     case 'heading': {
-      const sizes = { 1: 1.8, 2: 1.6, 3: 1.4, 4: 1.25, 5: 1.1, 6: 1.0 };
-      const multiplier = sizes[block.level] || 1.0;
-      const headingFontRpx = fontRpx * multiplier;
-      const headingLineRpx = headingFontRpx * s.lineHeight;
-      // 标题通常一行，加上下间距
-      return headingLineRpx + pxToRpx(24, s.screenWidth);
+      // 标题字号在 reader.wxss 里是**绝对值**（.block-h1~h6），不是正文字号的倍率。
+      // 此前这里按 1.8/1.6/1.4… 的倍率算，两边从来对不上 ——
+      // 默认字号下 h1 预估 57.6rpx 而实际只有 44rpx，偏大三成，
+      // 每个标题都在给滚动位置攒误差。
+      const headingRpx = HEADING_SIZE[block.level] || HEADING_SIZE[6];
+      return headingRpx * s.lineHeight +
+        RD.headingMarginTop + RD.headingMarginBottom;
     }
 
     case 'paragraph': {
       const text = block.text ||
         (block.children && block.children[0] && block.children[0].text) || '';
-      // 每行字符数：CJK 约 fontSize*1.0 宽，ASCII 约 fontSize*0.55 宽
-      // 取混合估算：每行约 (screenWidth - 32) / (fontSize * 0.7) 字符
-      const contentWidth = s.screenWidth - 32; // 两侧各 16px padding
-      const charsPerLine = Math.max(1, Math.floor(contentWidth / (s.fontSize * 0.7)));
-      const lineCount = Math.ceil(text.length / charsPerLine);
-      return Math.max(lineRpx, lineCount * lineRpx) + pxToRpx(12, s.screenWidth);
+      const lines = lineCountOf(text, s.fontSize, contentWidthPx(s));
+      return Math.max(lineRpx, lines * lineRpx) + RD.blockGap;
     }
 
     case 'code': {
+      // 代码块字号在样式里是固定的 26rpx，不跟随正文字号
       const lines = (block.text || '').split('\n').length;
-      const codeLineRpx = pxToRpx(s.fontSize * 0.85, s.screenWidth) * 1.6;
-      return lines * codeLineRpx + pxToRpx(24, s.screenWidth);
+      const codeLineRpx = RD.codeFontSize * RD.codeLeading;
+      return lines * codeLineRpx + RD.codePadding * 2;
     }
 
     case 'list': {
       const items = block.items || [];
-      return items.length * (lineRpx + pxToRpx(8, s.screenWidth)) + pxToRpx(8, s.screenWidth);
+      return items.length * (lineRpx + RD.listItemGap) + RD.listItemGap;
     }
 
     case 'listItem': {
-      // 列表项：缩进 + 文本行数
-      const text = block.text || '';
-      const indent = (block.depth || 0) * 2; // 每个 depth 缩进 2 字符
-      const contentWidth = s.screenWidth - 32 - indent * s.fontSize;
-      const charsPerLine = Math.max(1, Math.floor(contentWidth / (s.fontSize * 0.7)));
-      const lineCount = Math.ceil(text.length / charsPerLine);
-      return Math.max(lineRpx, lineCount * lineRpx) + pxToRpx(4, s.screenWidth);
+      // 缩进与 reader.wxml 的 padding-left 一致：每层一个 listIndent，外加一层基础缩进
+      const indentRpx = ((block.depth || 0) + 1) * RD.listIndent;
+      const lines = lineCountOf(block.text, s.fontSize, contentWidthPx(s, indentRpx));
+      return Math.max(lineRpx, lines * lineRpx) + RD.listItemGap;
     }
 
     case 'table': {
       // 单元格 white-space: nowrap，每格恒为一行，行高与列宽、屏宽都无关，
-      // 可由 reader.wxss 的 .table-cell 常量精确算出（改样式时需同步这里）：
-      // 26rpx 字号 × 1.5 行高 + 上下各 16rpx 内边距 + 1rpx 行分隔线。
+      // 由 .table-cell 的这几个令牌精确算出（两边同源，改一处即可）
       const headerCount = (block.header || []).length;
       const rowCount = (block.rows || []).length;
       const totalRows = rowCount + (headerCount > 0 ? 1 : 0);
-      const rowRpx = 26 * 1.5 + 32 + 1;
-      return totalRows * rowRpx + 24; // 24rpx = .block 的 margin-bottom
+      const rowRpx = RD.tableCellFontSize * RD.tableCellLeading +
+        RD.tableCellPaddingY * 2 + RD.tableRowBorder;
+      return totalRows * rowRpx + RD.blockGap;
     }
 
     case 'image': {
-      // 图片：预估 200px 高 + 上下间距
-      return pxToRpx(200, s.screenWidth) + pxToRpx(16, s.screenWidth);
+      return RD.imagePlaceholderHeight + RD.blockGap;
     }
 
     case 'blockquote': {
-      const children = block.children || [];
+      // 可用宽度还要再扣掉引用块自己的左右内边距和左侧色条
+      const inset = RD.quotePaddingX * 2 + BORDER.accent;
+      const padding = RD.quotePaddingY * 2 + RD.blockGap;
       const text = block.text || '';
       if (text) {
-        const contentWidth = s.screenWidth - 56;
-        const charsPerLine = Math.max(1, Math.floor(contentWidth / (s.fontSize * 0.7)));
-        const lineCount = Math.ceil(text.length / charsPerLine);
-        return lineCount * lineRpx + pxToRpx(16, s.screenWidth);
+        const lines = lineCountOf(text, s.fontSize, contentWidthPx(s, inset));
+        return lines * lineRpx + padding;
       }
-      return children.length * lineRpx + pxToRpx(16, s.screenWidth);
+      return (block.children || []).length * lineRpx + padding;
     }
 
     case 'quote': {
-      // 引用块：缩进 + 文本行数
-      const text = block.text || '';
-      const indent = (block.depth || 1) * 16; // 每层引用缩进 16px
-      const contentWidth = s.screenWidth - 32 - indent;
-      const charsPerLine = Math.max(1, Math.floor(contentWidth / (s.fontSize * 0.7)));
-      const lineCount = Math.ceil(text.length / charsPerLine);
-      return Math.max(lineRpx, lineCount * lineRpx) + pxToRpx(12, s.screenWidth);
+      // 逐层缩进，与 reader.wxml 的 margin-left 一致
+      const indentRpx = (block.depth || 1) * RD.quoteIndent;
+      const inset = indentRpx + RD.quotePaddingX * 2 + BORDER.accent;
+      const lines = lineCountOf(block.text, s.fontSize, contentWidthPx(s, inset));
+      return Math.max(lineRpx, lines * lineRpx) +
+        RD.quotePaddingY * 2 + RD.blockGap;
     }
 
     case 'footnote': {
-      // 脚注：小字号 + 缩进
-      const text = block.text || '';
-      const contentWidth = s.screenWidth - 48;
-      const charsPerLine = Math.max(1, Math.floor(contentWidth / (s.fontSize * 0.75 * 0.7)));
-      const lineCount = Math.ceil(text.length / charsPerLine);
-      const footLineRpx = pxToRpx(s.fontSize * 0.75, s.screenWidth) * 1.6;
-      return Math.max(footLineRpx, lineCount * footLineRpx) + pxToRpx(8, s.screenWidth);
+      // 脚注字号在样式里也是固定的，不跟随正文字号
+      const footFontPx = rpxToPx(RD.footnoteFontSize, s.screenWidth);
+      const footLineRpx = RD.footnoteFontSize * RD.footnoteLeading;
+      const lines = lineCountOf(block.text, footFontPx, contentWidthPx(s));
+      return Math.max(footLineRpx, lines * footLineRpx) + RD.footnotePaddingY * 2;
     }
 
     case 'html': {
-      // HTML 块：按等宽代码块估算
       const lines = (block.text || '').split('\n').length;
-      const htmlLineRpx = pxToRpx(s.fontSize * 0.85, s.screenWidth) * 1.6;
-      return lines * htmlLineRpx + pxToRpx(16, s.screenWidth);
+      const htmlLineRpx = RD.htmlFontSize * RD.htmlLeading;
+      return lines * htmlLineRpx + RD.htmlPadding * 2 + RD.blockGap;
     }
 
     case 'hr': {
-      return pxToRpx(32, s.screenWidth);
+      return RD.hrMargin * 2 + BORDER.hairline;
     }
 
     case 'scriptDegrade': {
-      // 脚本降级卡片：标题 + 消息 + 提示
-      var msgLines = Math.ceil((block.message || '').length / Math.max(1, Math.floor((s.screenWidth - 64) / (s.fontSize * 0.7))));
-      return pxToRpx(40 + 24 + msgLines * lineRpx + 20, s.screenWidth);
+      // 降级卡片：标题行 + 正文若干行 + 提示行，外加卡片内边距
+      const msgLines = lineCountOf(block.message, s.fontSize,
+        contentWidthPx(s, RD.degradeCardPadding * 2));
+      return RD.degradeCardPadding * 2 +
+        RD.degradeTitleSize * RD.footnoteLeading +
+        msgLines * lineRpx +
+        RD.degradeHintSize * RD.footnoteLeading +
+        RD.blockGap;
     }
 
     case 'math': {
-      return pxToRpx(60, s.screenWidth);
+      return RD.mathPlaceholderHeight;
     }
 
     default:
-      return pxToRpx(40, s.screenWidth);
+      return RD.fallbackBlockHeight;
   }
 }
 

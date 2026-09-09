@@ -53,12 +53,63 @@
   | image/* | 图片类文件 |
   | application/* | 通用文件配置 |
 - **⚠️ 关键发现**：
-  - **text/markdown (.md) 不在支持列表中** → scene 1173 无法用于 .md 文件
-  - 用户打开 .md 文件只能通过 chooseMessageFile
+  - ~~**text/markdown (.md) 不在支持列表中** → scene 1173 无法用于 .md 文件~~
+    **这条已被推翻，见下方 2026-09-09 复核。**
+  - 用户打开 .md 文件只能通过 chooseMessageFile ← 同上，已推翻
   - 审核要求"功能价值不能过低"：只是查看 .docx 等微信已能查看的文件会被拒
   - 本项目声明 `text/html` 和 `text/plain` 有充分价值（Tailwind 展开、CSS 变量求值、GBK 编码识别等微信原生不支持）
 - **出处**：https://developers.weixin.qq.com/miniprogram/dev/framework/material/support_material
 - **核对日期**：2026-08-15（Phase 4 联网核对）
+
+### 2.1 复核：text/markdown 实际是支持的（2026-09-09）
+
+上面 2026-08-15 那条"text/markdown 不在支持列表中"的结论**是错的**（或在此期间官方已补充）。
+重新核对官方 MimeType 表，`text/markdown` → `.md` 明确在列，与 `text/plain`、`text/html` 并列。
+
+同次核对还确认了几件此前记录不全的事：
+
+- 完整 MimeType 表比原记录长，还包含 `.docm` `.xlsm` `.psd` `.dwg` `.cdr` `.dxf` `.stp` `.rtf` `.ai`
+- app.json 全局配置页把 `supportedMaterials` 的类型标注为 `Object`，但
+  **专页的官方示例是数组**（`[{materialType, name, desc, path}, ...]`）——
+  以示例为准，本项目的写法与示例一致
+- 官方文档**未提及**个人主体限制或类目限制（AGENTS §2.7 把这一条列为待验证，
+  文档层面查不到限制，仍需提审实证）
+
+**这条错误结论是有后果的**：它曾支撑"打开 .md 只能靠 chooseMessageFile"的判断，
+而 AGENTS §1.1 正是据此把首屏主位给了 `chooseMessageFile`。
+现在 scene 1173 对 .md 可用，等于**多了一条更顺的入口**（用户在聊天里直接点 .md → 用本小程序打开），
+它不推翻 §1.1 的取舍（微信自己仍然打不开 .md，这才是真空所在），
+但**上线后应重新评估首屏引导的说辞**。
+
+- **出处**：https://developers.weixin.qq.com/miniprogram/dev/framework/material/support_material
+- **核对日期**：2026-09-09
+
+### 2.2 待解：运行时告警「无效的 app.json ["supportedMaterials"]」
+
+开发者工具 2.02.2608060 + 基础库 3.17.1（灰度）下，每次启动 Console 都打这条。
+
+已排除的原因：
+
+| 怀疑点 | 结论 |
+|---|---|
+| 字段结构错（对象 vs 数组） | 排除。与官方示例逐字段一致 |
+| materialType 取值非法 | 排除。三个值都在官方 MimeType 表内 |
+| `name` 超长 | 排除。除 `${nickname}` 外分别是 3 / 3 / 3 字，限 6 字 |
+| `desc` 超长 | 排除。分别 21 / 18 / 12 字，限 22 字 |
+| 开发者工具的 app.json 校验器报的 | 排除。报错来自 `WAServiceMainContext.js`，那是**基础库运行时**；
+工具包 `app.asar` 里搜不到"无效的 app.json"这个串 |
+
+**当前判断（待实证）**：`supportedMaterials` 是提审期 / 平台侧配置，
+运行时基础库并不消费它，很可能只是它的 app.json 字段白名单里没有这一项，
+于是归类为"无效字段"。若如此，这条告警无害。
+
+**一步定论的实验**：详情 → 本地设置 → 调试基础库版本，
+从 **3.17.1（灰度）** 切到 **3.17.2**（本地已有，无需下载），重新编译。
+- 告警消失 → 灰度版基础库的误报，切回稳定版即可，代码不用动。
+- 告警仍在 → 与灰度无关，再逐项二分 `supportedMaterials` 定位。
+
+⚠️ 无论哪种结果，**都不能据此删掉 `supportedMaterials`** ——
+它的真正生效时机是提审与上线，运行时告警不代表提审会失败。
 
 ---
 

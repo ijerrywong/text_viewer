@@ -1,7 +1,9 @@
 /* 隐私授权弹窗
  * 样式从 pages/index/index.wxss 搬来，改成组件后两个页面共用。
  * 颜色一律走主题变量：CSS 自定义属性会穿透组件样式隔离正常继承，
- * 所以深色/护眼主题下弹窗会跟着变，不会像原生 wx.showModal 那样跟系统跑。 */
+ * 所以深色/护眼主题下弹窗会跟着变，不会像原生 wx.showModal 那样跟系统跑。
+ *
+ * 数值同理走令牌（styles/tokens.wxss），不写字面量。 */
 
 .privacy-mask {
   position: fixed;
@@ -9,40 +11,40 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  background-color: var(--mask-strong);
+  z-index: var(--z-dialog);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .privacy-dialog {
-  width: 600rpx;
-  padding: 48rpx 40rpx;
+  width: var(--size-drawer-max-width);
+  padding: var(--space-12) var(--space-10);
   background-color: var(--bg-primary);
-  border-radius: 32rpx;
+  border-radius: var(--radius-4xl);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .privacy-title {
-  font-size: 34rpx;
-  font-weight: 600;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
   color: var(--text-primary);
-  margin-bottom: 24rpx;
+  margin-bottom: var(--space-6);
 }
 
 .privacy-desc {
-  font-size: 26rpx;
+  font-size: var(--text-md);
   color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 40rpx;
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-10);
 }
 
 .privacy-actions {
   display: flex;
-  gap: 24rpx;
+  gap: var(--space-6);
   width: 100%;
 }
 
@@ -53,12 +55,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 88rpx;
+  height: var(--size-button-height);
   padding: 0;
   margin: 0;
-  border-radius: 16rpx;
-  font-size: 30rpx;
-  font-weight: normal;
+  border-radius: var(--radius-xl);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-normal);
   line-height: 1;
 }
 
@@ -68,14 +70,14 @@
 }
 
 .privacy-btn-deny {
-  border: 1rpx solid var(--border);
+  border: var(--bw-hairline) solid var(--border);
   color: var(--text-primary);
   background-color: transparent;
 }
 
 .privacy-btn-agree {
   background-color: var(--accent);
-  color: #ffffff;
+  color: var(--on-accent);
 }
 
 .privacy-btn-agree:active,

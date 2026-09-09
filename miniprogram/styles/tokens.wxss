@@ -1,0 +1,310 @@
+/**
+ * tokens.wxss — 由 scripts/gen_tokens.js 自动生成，请勿手改
+ *
+ * 源文件：miniprogram/core/tokens/design.js
+ * 重新生成：node scripts/gen_tokens.js
+ *
+ * 手改这里的后果：下次生成时被覆盖，且 tests/test-tokens.js 会失败。
+ */
+
+page {
+
+  /* 主题调色板 · 浅色（默认） */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #ebebeb;
+  --bg-subtle: #f5f5f5;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --accent: #576b95;
+  --accent-bg: #e8eaf0;
+  --border: #e0e0e0;
+  --code-bg: #f6f8fa;
+  --code-text: #24292e;
+  --shadow: rgba(0, 0, 0, 0.08);
+  --mask: rgba(0, 0, 0, 0.4);
+  --mask-strong: rgba(0, 0, 0, 0.5);
+  --on-accent: #ffffff;
+  --on-accent-dim: rgba(255, 255, 255, 0.75);
+  --on-accent-bg: rgba(255, 255, 255, 0.2);
+  --warn: #e6a23c;
+  --reader-bg: #ffffff;
+  --reader-text: #333333;
+  --reader-heading: #1a1a1a;
+  --reader-link: #576b95;
+  --reader-code-bg: #f6f8fa;
+  --reader-blockquote: #6a737d;
+  --reader-blockquote-bg: #f0f0f0;
+  --reader-hr: #d0d0d0;
+  --search-hl-bg: #ffe58f;
+  --search-hl-text: #1a1a1a;
+  --search-hl-cur-bg: #f5871f;
+  --search-hl-cur-text: #ffffff;
+  --search-hit-bg: rgba(245, 135, 31, 0.08);
+  --code-tok-keyword: #d73a49;
+  --code-tok-string: #032f62;
+  --code-tok-comment: #6a737d;
+  --code-tok-number: #005cc5;
+  --code-tok-function: #6f42c1;
+  --code-tok-operator: #d73a49;
+
+  /* 主题预览色块（设置页专用：跨主题的固定值） */
+  --preview-light-bg: #ffffff;
+  --preview-light-text: #1a1a1a;
+  --preview-dark-bg: #1a1a1a;
+  --preview-dark-text: #e0e0e0;
+  --preview-sepia-bg: #f4ecd8;
+  --preview-sepia-text: #5b4636;
+
+  /* 正文排版（用户可调：阅读器以 inline style 下发同名变量覆盖） */
+  --reader-font-size: 16px;
+  --reader-line-height: 1.8;
+
+  /* 间距阶梯 */
+  --space-1: 4rpx;
+  --space-2: 8rpx;
+  --space-3: 12rpx;
+  --space-4: 16rpx;
+  --space-5: 20rpx;
+  --space-6: 24rpx;
+  --space-8: 32rpx;
+  --space-10: 40rpx;
+  --space-12: 48rpx;
+  --space-16: 64rpx;
+  --space-20: 80rpx;
+  --space-50: 200rpx;
+  --space-half: 2rpx;
+
+  /* 字号阶梯 */
+  --text-2xs: 20rpx;
+  --text-xs: 22rpx;
+  --text-sm: 24rpx;
+  --text-md: 26rpx;
+  --text-lg: 28rpx;
+  --text-xl: 30rpx;
+  --text-2xl: 32rpx;
+  --text-3xl: 34rpx;
+  --text-4xl: 36rpx;
+  --text-5xl: 40rpx;
+  --text-6xl: 48rpx;
+  --text-7xl: 80rpx;
+
+  /* 正文标题字号（与 core/render 高度预估共享同一组值） */
+  --heading-1: 44rpx;
+  --heading-2: 38rpx;
+  --heading-3: 34rpx;
+  --heading-4: 30rpx;
+  --heading-5: 28rpx;
+  --heading-6: 26rpx;
+
+  /* 行高倍率 */
+  --leading-tight: 1.4;
+  --leading-snug: 1.5;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.7;
+  --leading-loose: 1.8;
+
+  /* 字重 */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* 字距 */
+  --tracking-normal: 0rpx;
+  --tracking-wide: 1rpx;
+
+  /* 行内元素相对字号（em 倍率，跟随正文字号缩放） */
+  --em-code: 0.88em;
+  --em-sup: 0.8em;
+  --em-hint: 0.85em;
+  --em-quote: 0.96em;
+
+  /* 阴影几何（颜色另取 var(--shadow)，拼起来用） */
+  --shadow-card: 0 2rpx 8rpx;
+  --shadow-card-lg: 0 2rpx 12rpx;
+  --shadow-card-xl: 0 2rpx 16rpx;
+  --shadow-modal: 0 8rpx 32rpx;
+  --shadow-bar-up: 0 -4rpx 16rpx;
+
+  /* 字体族 */
+  --font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Songti SC", "SimSun", "Noto Serif SC", serif;
+  --font-mono: "SF Mono", "Fira Code", "Menlo", "Consolas", monospace;
+
+  /* 圆角 */
+  --radius-2xs: 2rpx;
+  --radius-xs: 4rpx;
+  --radius-sm: 6rpx;
+  --radius-md: 8rpx;
+  --radius-lg: 12rpx;
+  --radius-xl: 16rpx;
+  --radius-2xl: 20rpx;
+  --radius-3xl: 24rpx;
+  --radius-4xl: 32rpx;
+  --radius-pill: 100rpx;
+  --radius-full: 50%;
+
+  /* 描边宽度 */
+  --bw-hairline: 1rpx;
+  --bw-thick: 2rpx;
+  --bw-focus: 4rpx;
+  --bw-accent: 6rpx;
+
+  /* 尺寸 */
+  --size-nav-bar-height: 88rpx;
+  --size-nav-icon: 64rpx;
+  --size-entry-icon: 80rpx;
+  --size-ctrl-sm: 56rpx;
+  --size-input-height: 72rpx;
+  --size-spinner: 60rpx;
+  --size-button-height: 88rpx;
+  --size-drawer-max-width: 600rpx;
+  --size-modal-max-width: 620rpx;
+  --size-theme-swatch-w: 120rpx;
+  --size-theme-swatch-h: 80rpx;
+  --size-table-cell-min-width: 160rpx;
+  --size-search-list-min-height: 160rpx;
+  --size-progress-text-min-width: 60rpx;
+  --size-nav-action-min-width: 48rpx;
+  --size-list-marker-min-width: 40rpx;
+
+  /* 层级 */
+  --z-toolbar: 50;
+  --z-search-bar: 60;
+  --z-nav-bar: 100;
+  --z-drawer-mask: 200;
+  --z-drawer-panel: 201;
+  --z-search-mask: 300;
+  --z-dialog: 1000;
+
+  /* 动效 */
+  --motion-fast: 0.2s;
+  --motion-normal: 0.3s;
+  --motion-spin: 0.8s;
+  --motion-ease: ease;
+
+  /* 阅读区几何（与 core/render 高度预估共享同一组值） */
+  --rd-content-padding: 32rpx;
+  --rd-block-gap: 24rpx;
+  --rd-heading-margin-top: 40rpx;
+  --rd-heading-margin-bottom: 16rpx;
+  --rd-paragraph-gap: 12rpx;
+  --rd-code-font-size: 26rpx;
+  --rd-code-leading: 1.6;
+  --rd-code-padding: 24rpx;
+  --rd-list-item-gap: 8rpx;
+  --rd-list-indent: 32rpx;
+  --rd-quote-indent: 16rpx;
+  --rd-quote-padding-x: 24rpx;
+  --rd-quote-padding-y: 20rpx;
+  --rd-table-cell-font-size: 26rpx;
+  --rd-table-cell-leading: 1.5;
+  --rd-table-cell-padding-y: 16rpx;
+  --rd-table-row-border: 1rpx;
+  --rd-footnote-font-size: 24rpx;
+  --rd-footnote-leading: 1.6;
+  --rd-footnote-padding-y: 8rpx;
+  --rd-html-font-size: 24rpx;
+  --rd-html-leading: 1.5;
+  --rd-html-padding: 20rpx;
+  --rd-hr-margin: 40rpx;
+  --rd-image-placeholder-height: 400rpx;
+  --rd-math-placeholder-height: 120rpx;
+  --rd-fallback-block-height: 80rpx;
+  --rd-degrade-card-padding: 24rpx;
+  --rd-degrade-title-size: 28rpx;
+  --rd-degrade-hint-size: 24rpx;
+
+  /* 页面默认外观 */
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--reader-font-size);
+  line-height: var(--reader-line-height);
+}
+
+/* ══ 深色主题：只覆盖颜色，尺寸类令牌不随主题变化 ══ */
+.theme-dark {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #141414;
+  --bg-tertiary: #2a2a2a;
+  --bg-subtle: #242424;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #707070;
+  --accent: #7c8db5;
+  --accent-bg: #2a3040;
+  --border: #333333;
+  --code-bg: #1e1e1e;
+  --code-text: #d4d4d4;
+  --shadow: rgba(0, 0, 0, 0.3);
+  --mask: rgba(0, 0, 0, 0.6);
+  --mask-strong: rgba(0, 0, 0, 0.7);
+  --on-accent: #ffffff;
+  --on-accent-dim: rgba(255, 255, 255, 0.75);
+  --on-accent-bg: rgba(255, 255, 255, 0.2);
+  --warn: #e6a23c;
+  --reader-bg: #1a1a1a;
+  --reader-text: #c8c8c8;
+  --reader-heading: #e0e0e0;
+  --reader-link: #7c8db5;
+  --reader-code-bg: #1e1e1e;
+  --reader-blockquote: #888888;
+  --reader-blockquote-bg: #222222;
+  --reader-hr: #333333;
+  --search-hl-bg: #5c4b1f;
+  --search-hl-text: #f5e6b8;
+  --search-hl-cur-bg: #c77b21;
+  --search-hl-cur-text: #ffffff;
+  --search-hit-bg: rgba(199, 123, 33, 0.12);
+  --code-tok-keyword: #ff7b72;
+  --code-tok-string: #a5d6ff;
+  --code-tok-comment: #8b949e;
+  --code-tok-number: #79c0ff;
+  --code-tok-function: #d2a8ff;
+  --code-tok-operator: #ff7b72;
+}
+
+/* ══ 护眼主题：只覆盖颜色，尺寸类令牌不随主题变化 ══ */
+.theme-sepia {
+  --bg-primary: #f4ecd8;
+  --bg-secondary: #efe6cf;
+  --bg-tertiary: #e6dcc4;
+  --bg-subtle: #e9e2cf;
+  --text-primary: #5b4636;
+  --text-secondary: #8a7a66;
+  --text-tertiary: #a89880;
+  --accent: #8b6914;
+  --accent-bg: #ede0c8;
+  --border: #d4c9b0;
+  --code-bg: #ebe2cc;
+  --code-text: #4a3f33;
+  --shadow: rgba(91, 70, 54, 0.1);
+  --mask: rgba(59, 45, 32, 0.4);
+  --mask-strong: rgba(59, 45, 32, 0.5);
+  --on-accent: #fff8e8;
+  --on-accent-dim: rgba(255, 248, 232, 0.75);
+  --on-accent-bg: rgba(255, 248, 232, 0.22);
+  --warn: #b8791f;
+  --reader-bg: #f4ecd8;
+  --reader-text: #5b4636;
+  --reader-heading: #3d2f24;
+  --reader-link: #8b6914;
+  --reader-code-bg: #ebe2cc;
+  --reader-blockquote: #8a7a66;
+  --reader-blockquote-bg: #e8dfca;
+  --reader-hr: #d4c9b0;
+  --search-hl-bg: #e6d08a;
+  --search-hl-text: #4a3a28;
+  --search-hl-cur-bg: #b57a1c;
+  --search-hl-cur-text: #fff8e8;
+  --search-hit-bg: rgba(181, 122, 28, 0.10);
+  --code-tok-keyword: #8b4513;
+  --code-tok-string: #556b2f;
+  --code-tok-comment: #a89880;
+  --code-tok-number: #8b6914;
+  --code-tok-function: #6b4226;
+  --code-tok-operator: #8b4513;
+}

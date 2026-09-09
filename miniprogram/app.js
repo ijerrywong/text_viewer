@@ -2,11 +2,16 @@
  * app.js - 纯文本阅读器全局入口
  */
 
-// 默认设置
+const design = require('./core/tokens/design.js');
+const platform = require('./core/platform/index.js');
+
+// 默认设置。
+// 字号/行距的默认值来自令牌层 —— 它们同时是 tokens.wxss 里
+// --reader-font-size / --reader-line-height 的默认值，两边必须一致。
 const DEFAULT_SETTINGS = {
   theme: 'light',        // light | dark | sepia
-  fontSize: 16,          // px，逻辑像素
-  lineHeight: 1.8,       // 行高倍率
+  fontSize: design.TYPOGRAPHY_DEFAULT.fontSize,      // px，逻辑像素
+  lineHeight: design.TYPOGRAPHY_DEFAULT.lineHeight,  // 行高倍率
   fontFamily: 'system',  // system | serif | mono
   networkImages: true,   // 网络图片默认开启（ADR-13）
   keepScreenOn: true     // 屏幕常亮
@@ -44,13 +49,6 @@ function migrateSettings(settings) {
   return settings;
 }
 
-// 主题对应的导航栏颜色
-const THEME_NAV = {
-  light: { bg: '#ffffff', text: 'black' },
-  dark:  { bg: '#1a1a1a', text: 'white' },
-  sepia: { bg: '#f4ecd8', text: 'black' }
-};
-
 App({
   globalData: {
     settings: null,
@@ -78,18 +76,9 @@ App({
     // onLaunch 里任何一处抛异常，后面的初始化就全断了，
     // 而每个页面都依赖 globalData.settings / systemInfo —— 结果就是整个小程序白屏。
     // 所以这里每一步都要能失败得体面。
-    try {
-      this.globalData.systemInfo = wx.getSystemInfoSync();
-    } catch (e) {
-      console.error('获取系统信息失败', e);
-    }
-    // 兜底一份，保证页面里 sys.xxx 永远不会读到 undefined 的属性
-    if (!this.globalData.systemInfo) {
-      this.globalData.systemInfo = {
-        statusBarHeight: 20, windowWidth: 375, windowHeight: 667,
-        screenHeight: 667, platform: 'devtools', SDKVersion: ''
-      };
-    }
+    // getSystemInfo 内部已按基础库能力降级并兜底，不会抛，也不会返回 undefined
+    // （wx.getSystemInfoSync 已废弃，见 core/platform/index.js 的说明）
+    this.globalData.systemInfo = platform.getSystemInfo();
 
     // 基础库版本检查
     try {
@@ -529,12 +518,14 @@ App({
    * 应用主题到导航栏
    */
   applyThemeNav(theme) {
-    const nav = THEME_NAV[theme] || THEME_NAV.light;
+    // 背景色取自主题调色板本身，不再另抄一份 —— 此前这里有一张
+    // THEME_NAV 表，改主题色时必漏
+    const nav = design.navBarColor(theme);
     // 页面栈为空、或当前页是自定义导航栏时这个调用会 fail，
     // 不给 fail 回调的话会在控制台刷红，但它从来不是致命错误
     wx.setNavigationBarColor({
-      frontColor: nav.text,
-      backgroundColor: nav.bg,
+      frontColor: nav.frontColor,
+      backgroundColor: nav.backgroundColor,
       fail: function() {}
     });
   },

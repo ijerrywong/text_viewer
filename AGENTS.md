@@ -120,6 +120,33 @@
 
 > 总原则：**降级必须可见**。用户看到"这里有张图表但显示不了"，远好于看到一片空白而怀疑文件坏了。
 
+### 3.3 令牌层：凡是有名字的常量，只有一个定义处
+
+**这是一条硬约束，不是风格偏好。** 违反它在本项目里有明确的、已经发生过的代价。
+
+| 层 | 唯一真源 | 消费方 |
+|---|---|---|
+| 视觉令牌（颜色/间距/字号/圆角/层级/动效/阅读区几何） | `miniprogram/core/tokens/design.js` | 全部 WXSS（经生成的 `styles/tokens.wxss`）+ `core/render` 的高度预估 + 需要色值的原生组件 |
+| 工程限额（节点数/深度/文件大小档位/存储配额） | `miniprogram/core/tokens/limits.js` | 全部解析层、intake、store、detect |
+
+**为什么必须这样**：同一个视觉常量在本项目有两个消费方 —— WXSS 画出来的实际样式，和 `core/render` 用来做虚拟滚动占位的**预估高度**。两者一旦不等，滚动就跳（§6 门禁第 7 条）。此前两边各写各的字面量，没有任何机制保证同步，实际已经漂移：标题高度按「正文字号 × 1.8 倍率」估，而 WXSS 里 `.block-h1` 是绝对值 44rpx，默认字号下预估偏大三成，每个标题都在给滚动位置攒误差。
+
+**WXSS 读不到 JS，所以走生成**：
+```
+core/tokens/design.js  ──(node scripts/gen_tokens.js)──>  miniprogram/styles/tokens.wxss
+```
+`app.wxss` 只 `@import` 它。**不要手改 `tokens.wxss`** —— 会被下次生成覆盖，且 `tests/test-tokens.js` 会当场发现不一致。
+
+**规矩**：
+- 页面/组件 WXSS 里**不写** rpx 数值和色值，一律 `var(--token)`。
+- **不用 `var(--x, fallback)`**。fallback 会让「令牌不存在」表现得和「令牌存在」一模一样 —— `--bg-subtle` 就是这么在没定义的情况下被引用了三处、一直吃 fallback，降级提示条在三套主题下从没跟过主题，而且没有任何报错。
+- 间距只用 4rpx 阶梯上的档位（`--space-1` 起）。想加个 27rpx 时没有对应令牌，就该回到阶梯上。
+- 需要色值的原生组件（`slider` / `switch` 读不到 CSS 变量）从 `design.THEMES[theme]` 取，不许另抄一份。
+
+**两处刻意的例外**，都不是疏漏：
+1. `workers/parser.js` 的 `BATCH_SIZE` —— Worker 代码包独立打包，物理上 require 不到主包模块，只能手工同步，已在该文件注明。
+2. `core/parse/html/tailwind.js` 的调色板、`core/parse/html/converter.js` 的 `TAG_DEFAULTS`、编码码表 —— 这些是**外部规范的复刻**（Tailwind 官方色值、浏览器用户代理样式表、字符集标准码位），必须对齐上游而不是对齐我们的设计，纳入令牌层反而错。
+
 ## 3.5 给 AI 编码代理的禁止清单（每次会话开始前重申）
 AI 写小程序最大的失败模式是**写出 Web 代码**。以下每条写了必定运行失败：
 
@@ -150,7 +177,9 @@ text-viewer/
 │   ├── app.js / app.json / app.wxss
 │   ├── pages/ (index 入口 / reader 阅读器 / settings 设置)
 │   ├── components/ (virtual-list / code-block / toc / image-lazy ...)
+│   ├── styles/          # tokens.wxss（生成物，勿手改；app.wxss @import 它）
 │   ├── core/
+│   │   ├── tokens/      # 令牌层：design.js（视觉）/ limits.js（工程限额），见 §3.3
 │   │   ├── intake/      # 文件接入（chooseMessageFile / 启动场景 / 分享）
 │   │   ├── detect/      # 类型 + 编码识别
 │   │   ├── parse/       # txt / md / html → 统一文档模型(IR)
@@ -184,6 +213,7 @@ Block[] = {
 5. 包体积主包 < 2MB。
 6. **Tailwind CDN 样例还原**：3 份使用 Tailwind 的真实 AI 文档，布局与配色基本还原（Phase 3 门禁，不过关则 Phase 3 不算完成）。
 7. **滚动无跳动**：长文档上下滚动时不出现位置突跳（虚拟滚动高度补偿正确）。
+8. **令牌层无泄漏**：`node tests/test-tokens.js` 全绿 —— 生成物与源同步、WXSS 无字面量、引用的令牌都有定义、共享阈值只有一个定义处。改过 `core/tokens/design.js` 却忘了 `node scripts/gen_tokens.js`，这一条会失败。
 
 ## 6.5 合规硬要求（会卡上线，不是可选项）
 

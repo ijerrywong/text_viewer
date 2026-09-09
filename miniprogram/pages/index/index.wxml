@@ -140,7 +140,7 @@
       <text class="privacy-note-text">文档里的网络图片由你的手机直接加载，可在设置中关闭</text>
     </view>
 
-    <view style="height: 60rpx;"></view>
+    <view class="page-tail"></view>
   </scroll-view>
 
   <!-- 隐私授权弹窗（共享组件；「同意」必须是 open-type 按钮，见组件内注释） -->

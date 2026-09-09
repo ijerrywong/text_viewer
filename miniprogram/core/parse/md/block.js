@@ -31,9 +31,11 @@ function createIdGen() {
   return function () { return 'b' + (counter++); };
 }
 
-var MAX_LIST_DEPTH = 10; // C6
-var MAX_BLOCKS = 50000;  // AGENTS §2.4 防解析炸弹
-var MAX_TOC = 2000;
+// 阈值的唯一定义处：core/tokens/limits.js（AGENTS §2.4 防解析炸弹）
+var LIMITS = require('../../tokens/limits.js');
+var MAX_LIST_DEPTH = LIMITS.MAX_LIST_DEPTH; // C6
+var MAX_BLOCKS = LIMITS.MAX_BLOCKS;
+var MAX_TOC = LIMITS.MAX_TOC;
 
 /**
  * 标出哪些行位于围栏代码块内部

@@ -139,8 +139,11 @@
 **WXSS 读不到 JS，所以走生成**：
 ```
 core/tokens/design.js  ──(node scripts/gen_tokens.js)──>  miniprogram/styles/tokens.wxss
+assets/icons/*.svg     ──(node scripts/gen_icons.js)───>  miniprogram/assets/icons.js
 ```
-`app.wxss` 只 `@import` 它。**不要手改 `tokens.wxss`** —— 会被下次生成覆盖，且 `tests/test-tokens.js` 会当场发现不一致。
+`app.wxss` 只 `@import` 它。**不要手改 `tokens.wxss` 或 `icons.js`** —— 会被下次生成覆盖，且 `tests/test-tokens.js` 会当场发现不一致。
+
+**图标同理走生成，但原因不同**：`<image>` 的颜色 **CSS 改不了**（不像 HTML 里的 inline SVG 能吃 `currentColor`），所以着色只能在构建时做 —— 源文件用 `currentColor` 占位，`gen_icons.js` 从同一份 `THEMES` 取色注入，每个用途 × 每套主题各生成一份 data URI。主题色改了图标自动跟，不必重画。图标源规格：**24×24 网格、2px 线宽、圆线头、不上色**；线宽不齐是成套图标最扎眼的破绽，门禁会查。
 
 **规矩**：
 - 页面/组件 WXSS 里**不写** rpx 数值和色值，一律 `var(--token)`。

@@ -9,6 +9,7 @@
 var app = getApp();
 var detect = require('../../core/detect/index.js');
 var decoder = require('../../core/encoding/decoder.js');
+var iconSet = require('../../assets/icons.js');
 var parseMod = require('../../core/parse/index.js');
 var renderMod = require('../../core/render/index.js');
 var platform = require('../../core/platform/index.js');
@@ -127,6 +128,9 @@ Page({
     // 导航栏内容区高度与右侧避让宽度，measureViewport 里按胶囊实测值下发
     navContentHeight: 44,
     navRightInset: 0,
+    // 工具栏图标（已按主题着色）。主题一换必须整份换掉 ——
+    // <image> 的颜色 CSS 改不了，见 scripts/gen_icons.js
+    icons: iconSet.light,
     // 解码结果疑似乱码时才为 true，用于唤出编码切换入口（ADR-15）
     encodingSuspect: false,
     toolbarHeight: 100,
@@ -470,6 +474,7 @@ Page({
 
     this.setData({
       themeClass: 'theme-' + theme,
+      icons: iconSet[theme] || iconSet.light,
       fontSize: nextFontSize,
       lineHeight: nextLineHeight,
       fontFamily: s.fontFamily || 'system',

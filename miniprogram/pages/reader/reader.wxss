@@ -249,11 +249,13 @@
   opacity: 0.6;
 }
 
-/* 四个图标都是 emoji，自带颜色 —— color 对它们不生效，写在这里只是给
-   将来可能替换成单色符号时留个落点。图标一致性的说明见 reader.wxml。 */
+/* 图标是 <image>，要的是 width/height 而不是 font-size。
+   颜色不在这里 —— SVG 在构建时就按主题着好色了（scripts/gen_icons.js），
+   image 组件的颜色 CSS 改不了。 */
 .tool-icon {
-  font-size: var(--text-4xl);
-  color: var(--text-secondary);
+  width: var(--size-icon-toolbar);
+  height: var(--size-icon-toolbar);
+  display: block;
 }
 
 .tool-label {

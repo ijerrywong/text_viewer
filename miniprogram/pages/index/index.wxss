@@ -145,10 +145,6 @@
   background-color: var(--on-accent-bg);
 }
 
-.entry-primary .entry-icon {
-  color: var(--on-accent);
-}
-
 .entry-icon-wrap {
   width: var(--size-entry-icon);
   height: var(--size-entry-icon);
@@ -160,9 +156,11 @@
   flex-shrink: 0;
 }
 
+/* 同 .tool-icon：<image> 用尺寸不用字号，颜色在构建时注入 */
 .entry-icon {
-  font-size: var(--text-5xl);
-  color: var(--accent);
+  width: var(--size-icon-entry);
+  height: var(--size-icon-entry);
+  display: block;
 }
 
 .entry-body {

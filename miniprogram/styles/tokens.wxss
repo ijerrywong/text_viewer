@@ -164,6 +164,8 @@ page {
   --size-modal-max-width: 620rpx;
   --size-theme-swatch-w: 120rpx;
   --size-theme-swatch-h: 80rpx;
+  --size-icon-toolbar: 36rpx;
+  --size-icon-entry: 40rpx;
   --size-table-cell-min-width: 160rpx;
   --size-search-list-min-height: 160rpx;
   --size-progress-text-min-width: 60rpx;

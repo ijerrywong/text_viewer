@@ -348,35 +348,32 @@
 
   <!-- 底部工具栏 -->
   <!--
-    四个图标此前是 ☰ / 🔍 / Aa / 💾 —— 几何符号、emoji、拉丁字母三种体系混在
-    一排同级按钮里。除了风格不统一，还有个实际后果：.tool-icon 的
-    color 对彩色 emoji 无效，所以深色主题下 ☰ 和 Aa 会跟着变浅灰，
-    而 🔍 和 💾 保持原色 —— 四个图标两种表现。
+    图标是 assets/icons/*.svg，按当前主题着色后由 assets/icons.js 提供
+    （见 scripts/gen_icons.js）。
 
-    统一到 emoji 而不是统一到单色符号，是因为微信内置 emoji 字体、
-    跨平台渲染确定；单色搜索符（⌕ 之类）字体支持不稳，可能显示成方块，
-    那个风险比「不跟随主题」更严重。四个都是 emoji 之后至少表现一致。
-
-    💾 顺带换成 🔖：软盘这个隐喻对现在的用户已经不成立，而这一项做的
-    正是「记住读到哪」—— 书签才是它。
+    换掉 emoji 的两个理由：
+    1. 工具栏图标只有 36rpx（≈18px），📑 🔖 这类细节多的 emoji 在这个尺寸下会糊；
+    2. emoji 自带颜色，CSS 染不上 —— 此前深色主题下 ☰ / Aa 跟着变灰而
+       🔍 / 💾 保持彩色，四个同级图标两种表现。SVG 在构建时按主题着色，
+       三套主题下始终一致。
   -->
   <view class="toolbar" wx:if="{{!loading}}">
     <view class="tool-item" bindtap="toggleToc">
-      <text class="tool-icon">📑</text>
+      <image class="tool-icon" src="{{icons.toolbarToc}}" mode="aspectFit"/>
       <text class="tool-label">目录</text>
     </view>
     <view class="tool-item" bindtap="toggleSearch">
-      <text class="tool-icon">🔍</text>
+      <image class="tool-icon" src="{{icons.toolbarSearch}}" mode="aspectFit"/>
       <text class="tool-label">搜索</text>
     </view>
     <view class="tool-item" bindtap="goSettings">
-      <text class="tool-icon">⚙️</text>
+      <image class="tool-icon" src="{{icons.toolbarSettings}}" mode="aspectFit"/>
       <text class="tool-label">设置</text>
     </view>
     <!-- ADR-15：原标签是「进度」—— 那是名词，说的是它记录的东西，
          而不是点下去会发生什么。改成动词「保存」。 -->
     <view class="tool-item" bindtap="saveProgress">
-      <text class="tool-icon">🔖</text>
+      <image class="tool-icon" src="{{icons.toolbarBookmark}}" mode="aspectFit"/>
       <text class="tool-label">保存</text>
     </view>
   </view>

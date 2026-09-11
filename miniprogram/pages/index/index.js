@@ -8,6 +8,7 @@
 
 const app = getApp();
 const platform = require('../../core/platform/index.js');
+const iconSet = require('../../assets/icons.js');
 
 Page({
   data: {
@@ -16,6 +17,8 @@ Page({
     // 导航栏内容区高度与右侧避让宽度，onLoad 里按胶囊实测值下发
     navContentHeight: 44,
     navRightInset: 0,
+    // 入口卡图标（已按主题着色），applyTheme 里随主题整份换掉
+    icons: iconSet.light,
     themeClass: '',
     showTip: true,
     showPrivacy: false,
@@ -106,7 +109,13 @@ Page({
     // 真机上万一命中未转译的运行时，首页 JS 会整个解析失败 —— 表现就是白屏，
     // 而且模拟器里完全复现不出来。首页是入口，不值得为省两个字符冒这个险。
     const settings = app.globalData.settings || {};
-    this.setData({ themeClass: 'theme-' + (settings.theme || 'light') });
+    const theme = settings.theme || 'light';
+    this.setData({
+      themeClass: 'theme-' + theme,
+      // 图标已在构建时按主题着色，主题一换必须整份替换 ——
+      // <image> 的颜色 CSS 改不了，见 scripts/gen_icons.js
+      icons: iconSet[theme] || iconSet.light
+    });
   },
 
   /**

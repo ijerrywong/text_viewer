@@ -69,7 +69,7 @@
       <!-- 从聊天选文件（主位）-->
       <view class="entry-card entry-primary" bindtap="chooseFile">
         <view class="entry-icon-wrap">
-          <text class="entry-icon">💬</text>
+          <image class="entry-icon" src="{{icons.entryChat}}" mode="aspectFit"/>
         </view>
         <view class="entry-body">
           <text class="entry-title">从聊天选择文件</text>
@@ -81,7 +81,7 @@
       <!-- 粘贴文本（第二位）-->
       <view class="entry-card" bindtap="pasteText">
         <view class="entry-icon-wrap">
-          <text class="entry-icon">📋</text>
+          <image class="entry-icon" src="{{icons.entryPaste}}" mode="aspectFit"/>
         </view>
         <view class="entry-body">
           <text class="entry-title">粘贴文本</text>
@@ -99,7 +99,7 @@
       <!-- 查看示例 -->
       <view class="entry-card" bindtap="viewSamples">
         <view class="entry-icon-wrap">
-          <text class="entry-icon">📖</text>
+          <image class="entry-icon" src="{{icons.entrySample}}" mode="aspectFit"/>
         </view>
         <view class="entry-body">
           <text class="entry-title">查看示例</text>

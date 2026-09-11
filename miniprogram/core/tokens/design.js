@@ -368,6 +368,11 @@ var SIZE = {
   modalMaxWidth: 620,    // 搜索浮层最大宽
   themeSwatchW: 120,     // 设置页主题预览色块
   themeSwatchH: 80,
+  // 线性图标的显示尺寸。图标是 <image>，要的是 width/height 而不是 font-size —— 
+  // 换成 SVG 之前这两处借用的是字号令牌（--text-4xl / --text-5xl），
+  // 那对 emoji 成立，对图片不成立
+  iconToolbar: 36,   // 阅读页底部工具栏
+  iconEntry: 40,     // 首页入口卡
   tableCellMinWidth: 160,
   searchListMinHeight: 160,
   progressTextMinWidth: 60,

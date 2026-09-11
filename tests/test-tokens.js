@@ -57,6 +57,9 @@ function rel(p) {
   return path.relative(ROOT, p);
 }
 
+// 令牌源。图标层与高度预估两节都要用，所以在这里就取
+var design = require(path.join(MINI, 'core', 'tokens', 'design.js'));
+
 // 去掉 /* */ 注释，避免注释里写的示例值被误判成字面量
 function stripComments(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -82,6 +85,74 @@ if (before !== null) {
   ok('tokens.wxss 与 core/tokens/design.js 一致'
     + '（不一致说明改了源没重新生成：node scripts/gen_tokens.js）',
     before === after);
+}
+
+// ─── 1b. 图标生成物与 SVG 源同步 ───
+
+console.log('\n图标层');
+
+var ICONS_JS = path.join(MINI, 'assets', 'icons.js');
+var ICONS_SRC = path.join(ROOT, 'assets', 'icons');
+
+var iconsBefore = read(ICONS_JS);
+ok('assets/icons.js 存在', iconsBefore !== null);
+
+if (iconsBefore !== null) {
+  var ires = childProcess.spawnSync(
+    process.execPath, [path.join(ROOT, 'scripts', 'gen_icons.js')], { encoding: 'utf-8' }
+  );
+  ok('gen_icons.js 能正常跑完', ires.status === 0,
+    (ires.stderr || '').trim().split('\n').slice(-3).join(' / '));
+  ok('icons.js 与 assets/icons/*.svg 一致'
+    + '（不一致说明改了图标没重新生成：node scripts/gen_icons.js）',
+    iconsBefore === read(ICONS_JS));
+
+  var icons = require(ICONS_JS);
+  var themeNames = Object.keys(design.THEMES);
+
+  ok('每套主题都有一份图标', themeNames.every(function (t) {
+    return icons[t] && Object.keys(icons[t]).length > 0;
+  }), Object.keys(icons).join(', '));
+
+  // 着色必须真的发生 —— 残留 currentColor 在小程序里会渲染成黑色，
+  // 深色主题下直接看不见
+  ok('没有 currentColor 残留（image 的颜色 CSS 改不了，必须构建时注入）',
+    JSON.stringify(icons).indexOf('currentColor') < 0);
+
+  // 同一个用途在不同主题下必须是不同的着色结果，否则等于没跟主题
+  var differs = themeNames.length < 2 ||
+    icons[themeNames[0]].toolbarToc !== icons[themeNames[1]].toolbarToc;
+  ok('同一图标在不同主题下着色不同', differs);
+
+  // 抽一个用途，验证注入的正是令牌表里的色值
+  var lightToc = decodeURIComponent(
+    icons.light.toolbarToc.replace('data:image/svg+xml,', ''));
+  ok('工具栏图标用的是 text-secondary 令牌色',
+    lightToc.indexOf(design.THEMES.light['text-secondary']) >= 0);
+
+  var lightChat = decodeURIComponent(
+    icons.light.entryChat.replace('data:image/svg+xml,', ''));
+  ok('主入口卡图标用的是 on-accent 令牌色（它铺在 accent 底上）',
+    lightChat.indexOf(design.THEMES.light['on-accent']) >= 0);
+}
+
+// 源文件规格一致 —— 七个图标并排时，线宽不齐是最扎眼的
+if (fs.existsSync(ICONS_SRC)) {
+  var svgs = fs.readdirSync(ICONS_SRC).filter(function (f) { return /\.svg$/.test(f); });
+  ok('扫到图标源文件', svgs.length > 0, svgs.length + ' 个');
+
+  var badGrid = [], badStroke = [], noPlaceholder = [];
+  svgs.forEach(function (f) {
+    var src = read(path.join(ICONS_SRC, f)) || '';
+    if (src.indexOf('viewBox="0 0 24 24"') < 0) badGrid.push(f);
+    if (src.indexOf('stroke-width="2"') < 0) badStroke.push(f);
+    if (src.indexOf('currentColor') < 0) noPlaceholder.push(f);
+  });
+  ok('全部用 24×24 网格', badGrid.length === 0, badGrid.join(', '));
+  ok('全部是 2px 线宽（线宽不齐是成套图标最扎眼的破绽）',
+    badStroke.length === 0, badStroke.join(', '));
+  ok('全部用 currentColor 占位（源文件不上色，颜色构建时注入）',
+    noPlaceholder.length === 0, noPlaceholder.join(', '));
 }
 
 // ─── 2. WXSS 里没有字面量 ───
@@ -263,7 +334,6 @@ ok('reader.js 把用户行距写进了 --reader-line-height',
 
 console.log('\n样式与高度预估同源');
 
-var design = require(path.join(MINI, 'core', 'tokens', 'design.js'));
 var readerWxss = stripComments(read(path.join(MINI, 'pages', 'reader', 'reader.wxss')) || '');
 
 // 抽查几条最容易漂移、且漂移后直接表现为滚动跳动的

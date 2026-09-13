@@ -62,55 +62,48 @@
   height: 0;
 }
 
-/* Hero 区 */
+/* Hero 区
+ *
+ * 对齐：全页只有一条左边线（页面内边距 var(--space-8)），hero、入口卡、
+ * 最近文件、页尾脚注一律贴着它。此前 hero 和页尾居中、中间的卡片左对齐 ——
+ * 一页两套对齐，边线互相看不见，整块就散了。
+ * 方向选左不选中：入口卡是「图标 + 文字 + 箭头」的横向行，天生左起，
+ * 居不了中；能统一的只有让上下都退到左边。 */
+/* 下内边距比上一档大（space-10 而非 space-8）：说明文字与入口卡之间要有一段
+ * 明确的空白，这是「介绍」与「动手」两组之间的界线。加上 .entries 自己的
+ * var(--space-4) 上内边距，实际间距 56rpx。 */
 .hero {
-  padding: var(--space-12) var(--space-8) var(--space-8);
+  padding: var(--space-12) var(--space-8) var(--space-10);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
 }
 
-.hero-badge {
-  padding: var(--space-2) var(--space-6);
-  border-radius: var(--radius-pill);
-  background-color: var(--accent-bg);
-  margin-bottom: var(--space-6);
-}
-
-.hero-badge-text {
-  font-size: var(--text-xs);
-  color: var(--accent);
-  letter-spacing: var(--tracking-wide);
-}
-
-/* 标题组：两行是一句话，靠行距贴合，行间不再加外边距 */
-.hero-titles {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: var(--space-4);
-}
-
+/* 标题一行排完。text-6xl(48rpx) × 13 字 = 624rpx，页面可用宽是
+ * 750 - var(--space-8) × 2 = 686rpx —— 余 62rpx，还能再放一个字。
+ * ⚠️ 这一行的字数是有上限的：14 字就只剩 14rpx，15 字必折。
+ *    折成两行等于把一句话读成两个短句，不要让它发生。 */
 .hero-title {
   font-size: var(--text-6xl);
   font-weight: var(--weight-bold);
   color: var(--text-primary);
-  text-align: center;
+  text-align: left;
   line-height: var(--leading-tight);
+  margin-bottom: var(--space-4);
 }
 
 /* 描述组：两行是两条信息，给一格间距区分开 */
 .hero-descs {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-1);
 }
 
 .hero-desc {
   font-size: var(--text-md);
   color: var(--text-secondary);
-  text-align: center;
+  text-align: left;
   line-height: var(--leading-normal);
 }
 
@@ -122,9 +115,14 @@
   gap: var(--space-5);
 }
 
+/* 三张卡共用一个高度（--size-entry-card-height），锁死而不是各自随文字长。
+ * 一组并列的入口必须是同一个矩形反复出现，这是重复原则的最小要求；
+ * 哪天某张卡的描述在窄屏上折了行，锁了高度就不会一张比一张高。
+ * 高度值的算法写在 core/tokens/design.js 的 SIZE.entryCardHeight。 */
 .entry-card {
   display: flex;
   align-items: center;
+  min-height: var(--size-entry-card-height);
   padding: var(--space-8);
   background-color: var(--bg-primary);
   border-radius: var(--radius-3xl);
@@ -170,27 +168,20 @@
   flex-direction: column;
 }
 
+/* 下面三条的 line-height 必须显式写出：卡片高度是按它们算出来的，
+ * 交给浏览器默认值就成了不可预测的数，算式也就失去意义。 */
 .entry-title {
   font-size: var(--text-2xl);
   font-weight: var(--weight-semibold);
   color: var(--text-primary);
+  line-height: var(--leading-tight);
   margin-bottom: var(--space-1);
 }
 
 .entry-desc {
   font-size: var(--text-sm);
   color: var(--text-secondary);
-}
-
-/* 入口卡片里的小字标注（剪贴板「点了才读」的事先说明） */
-.entry-note {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  margin-top: var(--space-2);
-}
-
-.entry-primary .entry-note {
-  color: var(--on-accent-dim);
+  line-height: var(--leading-normal);
 }
 
 .entry-arrow {
@@ -279,9 +270,12 @@
   flex-shrink: 0;
 }
 
-/* 提示卡片 */
+/* 提示卡片
+ * 四边外边距一律 var(--space-8)：此前上边是 0，只靠上方区块自己的内边距
+ * 撑开，于是「卡到上面」和「卡到下面」两段空白不一样宽，卡片看着是被
+ * 往上推着走的。上下统一按下间距取值，它才真的悬在两块内容中间。 */
 .tip-card {
-  margin: 0 var(--space-8) var(--space-8);
+  margin: var(--space-8);
   padding: var(--space-6);
   background-color: var(--accent-bg);
   border-radius: var(--radius-xl);
@@ -305,18 +299,19 @@
 }
 
 /* 页尾隐私说明（ADR-13：从 hero badge 下沉，弱化为脚注） */
+/* 与 hero 同理：贴页面左边线，不再居中 */
 .privacy-note {
   padding: var(--space-2) var(--space-8) 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
 }
 
 .privacy-note-text {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
-  text-align: center;
+  text-align: left;
   line-height: var(--leading-normal);
 }
 

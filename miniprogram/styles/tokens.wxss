@@ -156,6 +156,7 @@ page {
   --size-nav-bar-height: 88rpx;
   --size-nav-icon: 64rpx;
   --size-entry-icon: 80rpx;
+  --size-entry-card-height: 156rpx;
   --size-ctrl-sm: 56rpx;
   --size-input-height: 72rpx;
   --size-spinner: 60rpx;

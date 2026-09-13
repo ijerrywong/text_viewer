@@ -10,11 +10,12 @@
   padding: var(--space-8) 0;
 }
 
-/* 左右外边距与首页内容区一致（都是 space-8）——
+/* 左右外边距与首页内容区一致（同走 --size-page-gutter）——
  * 此前设置页是 space-6，两个页面的内容左边缘差 8rpx，
- * 来回切换时能看出边缘在跳 */
+ * 来回切换时能看出边缘在跳。所以这条边距不能自己取值，
+ * 必须和首页共用同一个令牌。 */
 .settings-group {
-  margin: 0 var(--space-8) var(--space-8);
+  margin: 0 var(--size-page-gutter) var(--space-8);
   padding: var(--space-8);
   background-color: var(--bg-primary);
   border-radius: var(--radius-2xl);

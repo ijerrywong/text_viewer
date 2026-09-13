@@ -20,7 +20,6 @@ Page({
     // 入口卡图标（已按主题着色），applyTheme 里随主题整份换掉
     icons: iconSet.light,
     themeClass: '',
-    showTip: true,
     showPrivacy: false,
     recentFiles: [],
     // 朋友圈单页模式（scene 1154）：跳转、选文件、剪贴板全被平台禁用，
@@ -463,13 +462,6 @@ Page({
         }
       }
     });
-  },
-
-  /**
-   * 关闭提示
-   */
-  closeTip() {
-    this.setData({ showTip: false });
   },
 
   /**

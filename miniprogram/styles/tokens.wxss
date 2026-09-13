@@ -153,6 +153,7 @@ page {
   --bw-accent: 6rpx;
 
   /* 尺寸 */
+  --size-page-gutter: 48rpx;
   --size-nav-bar-height: 88rpx;
   --size-nav-icon: 64rpx;
   --size-entry-icon: 80rpx;

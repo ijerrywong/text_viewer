@@ -118,15 +118,6 @@
       </view>
     </view>
 
-    <!-- 引导提示 -->
-    <view class="tip-card" wx:if="{{showTip}}">
-      <text class="tip-text">
-        提示：在聊天里长按文件 →「打开方式」→ 选择本小程序，可直接打开文件。
-        若未看到入口，请先「从聊天选择文件」。
-      </text>
-      <text class="tip-close" bindtap="closeTip">✕</text>
-    </view>
-
     <!--
       隐私说明（ADR-13：从 hero badge 下沉至此）
       技术事实没变 —— 本地解析、零 wx.request/downloadFile。

@@ -32,7 +32,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-8);
+  padding: 0 var(--size-page-gutter);
 }
 
 .nav-title {
@@ -64,7 +64,7 @@
 
 /* Hero 区
  *
- * 对齐：全页只有一条左边线（页面内边距 var(--space-8)），hero、入口卡、
+ * 对齐：全页只有一条左边线（页面内边距 var(--size-page-gutter)），hero、入口卡、
  * 最近文件、页尾脚注一律贴着它。此前 hero 和页尾居中、中间的卡片左对齐 ——
  * 一页两套对齐，边线互相看不见，整块就散了。
  * 方向选左不选中：入口卡是「图标 + 文字 + 箭头」的横向行，天生左起，
@@ -73,16 +73,17 @@
  * 明确的空白，这是「介绍」与「动手」两组之间的界线。加上 .entries 自己的
  * var(--space-4) 上内边距，实际间距 56rpx。 */
 .hero {
-  padding: var(--space-12) var(--space-8) var(--space-10);
+  padding: var(--space-12) var(--size-page-gutter) var(--space-10);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
 }
 
 /* 标题一行排完。text-6xl(48rpx) × 13 字 = 624rpx，页面可用宽是
- * 750 - var(--space-8) × 2 = 686rpx —— 余 62rpx，还能再放一个字。
- * ⚠️ 这一行的字数是有上限的：14 字就只剩 14rpx，15 字必折。
- *    折成两行等于把一句话读成两个短句，不要让它发生。 */
+ * 750 - var(--size-page-gutter) × 2 = 654rpx —— 只余 30rpx。
+ * ⚠️ 13 字已经是上限，再加一个字（672rpx）就折行。折成两行等于把一句话
+ *    读成两个短句，不要让它发生。左右留白和标题字数是一笔账，动哪边都要
+ *    回来算另一边。 */
 .hero-title {
   font-size: var(--text-6xl);
   font-weight: var(--weight-bold);
@@ -109,7 +110,7 @@
 
 /* 入口卡片 */
 .entries {
-  padding: var(--space-4) var(--space-8);
+  padding: var(--space-4) var(--size-page-gutter);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -191,7 +192,7 @@
 
 /* 区块标题 */
 .section {
-  padding: var(--space-8);
+  padding: var(--space-8) var(--size-page-gutter);
 }
 
 /* 标题到列表用 space-6，列表项之间是 space-4 —— 拉开一档，
@@ -232,13 +233,18 @@
   gap: var(--space-4);
 }
 
+/* 最近文件用浅底平铺，不再是「白底 + 阴影 + 大圆角」那套 ——
+ * 那是入口卡的形状语言。此前两者长得一样，等于在说「这一条和上面三张卡
+ * 是同一类东西」，可它们不是：上面是三个固定动作，这里是一份会变的历史记录。
+ * 形状一样就等于把这层差别抹掉了（重复原则是用来区分组别的，不是用来抹平的）。
+ * 现在这套底色 + 圆角 + 无阴影，沿用原先引导提示卡的形态 —— 那张卡已删，
+ * 形状语言留在这里继续用。 */
 .recent-item {
   display: flex;
   align-items: center;
-  padding: var(--space-6) var(--space-8);
-  background-color: var(--bg-primary);
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-card) var(--shadow);
+  padding: var(--space-6);
+  background-color: var(--accent-bg);
+  border-radius: var(--radius-xl);
 }
 
 .recent-info {
@@ -260,48 +266,22 @@
   margin-top: var(--space-2);
 }
 
+/* 标签底色跟着列表项换：列表项已经是 accent-bg，标签再用同一个底色
+ * 就等于没有标签。换成 bg-primary，在浅底上是一枚浮起来的小白片。 */
 .recent-format {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
-  background-color: var(--accent-bg);
+  background-color: var(--bg-primary);
   font-size: var(--text-xs);
   color: var(--accent);
   text-transform: uppercase;
   flex-shrink: 0;
 }
 
-/* 提示卡片
- * 四边外边距一律 var(--space-8)：此前上边是 0，只靠上方区块自己的内边距
- * 撑开，于是「卡到上面」和「卡到下面」两段空白不一样宽，卡片看着是被
- * 往上推着走的。上下统一按下间距取值，它才真的悬在两块内容中间。 */
-.tip-card {
-  margin: var(--space-8);
-  padding: var(--space-6);
-  background-color: var(--accent-bg);
-  border-radius: var(--radius-xl);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
-
-.tip-text {
-  flex: 1;
-  font-size: var(--text-sm);
-  color: var(--accent);
-  line-height: var(--leading-normal);
-}
-
-.tip-close {
-  font-size: var(--text-lg);
-  color: var(--accent);
-  opacity: 0.6;
-  flex-shrink: 0;
-}
-
 /* 页尾隐私说明（ADR-13：从 hero badge 下沉，弱化为脚注） */
 /* 与 hero 同理：贴页面左边线，不再居中 */
 .privacy-note {
-  padding: var(--space-2) var(--space-8) 0;
+  padding: var(--space-2) var(--size-page-gutter) 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -319,7 +299,7 @@
 
 /* 朋友圈单页模式横幅（scene 1154，平台禁用跳转/选文件/剪贴板） */
 .single-page-banner {
-  margin: var(--space-6) var(--space-8) 0;
+  margin: var(--space-6) var(--size-page-gutter) 0;
   padding: var(--space-6);
   background-color: var(--accent-bg);
   border-radius: var(--radius-xl);
